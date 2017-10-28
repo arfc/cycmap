@@ -1,4 +1,6 @@
 import sqlite3 as sql
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 
 def get_cursor(file_name):
@@ -64,3 +66,46 @@ def get_prototype_ids(cur, prototype):
                       str(prototype) + '" COLLATE NOCASE').fetchall()
 
     return list(str(agent['agentid']) for agent in ids)
+
+
+def get_archetype_position(cur, archetype):
+    pos = cur.execute("SELECT agentid, spec, prototype, latitude, longitude "
+                      "FROM agentposition WHERE spec LIKE '%" + archetype +
+                      "%' COLLATE NOCASE")
+
+    return {str(agent['agentid']): [agent['spec'][9:], agent['prototype'],
+                                    (agent['latitude'], agent['longitude'])]
+            for agent in pos}
+
+
+def available_archetypes(cur):
+    blacklist = {'ManagerInst',
+                 'DeployInst',
+                 'GrowthRegion'}
+    archetypes = get_archetype_position(cur, 'cycamore')
+    archetypes = {v[0] for k, v in archetypes.items()}
+    return archetypes - blacklist
+
+
+def get_bounds()
+
+def plot_agents(cur):
+    shapes = ['o', 'v', 's', 'p', '8', 'H']
+    fig = plt.figure(figsize=(20, 15))
+    bounds = get_bounds()
+    sim_map = Basemap(projection='cyl',
+                      llcrnrlat=bounds[0],
+                      urcrnrlat=bounds[1],
+                      llcrnrlon=bounds[2],
+                      urcrnrlon=bounds[3])
+    sim_map = Basemap(projection='cyl')
+    sim_map.drawcoastlines()
+    sim_map.drawcountries()
+
+    for i, archetype in enumerate(available_archetypes(cur)):
+        archetypes = get_archetype_position(cur, archetype)
+        for k, v in archetypes.items():
+            plt.scatter(v[2][1], v[2][0], marker=shapes[i], label=v[0])
+            plt.annotate(v[1], xy=v[2])
+
+    plt.show()
