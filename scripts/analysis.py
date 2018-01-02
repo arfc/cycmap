@@ -1,6 +1,6 @@
 import sqlite3 as sql
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+import numpy as np
 
 
 def get_cursor(file_name):
@@ -73,8 +73,8 @@ def get_archetype_position(cur, archetype):
                       "FROM agentposition WHERE spec LIKE '%" + archetype +
                       "%' COLLATE NOCASE")
 
-    return {str(agent['agentid']): [agent['spec'][9:], agent['prototype'],
-                                    (agent['latitude'], agent['longitude'])]
+    return {str(agent['agentid']): (agent['spec'][10:], agent['prototype'],
+                                    (agent['latitude'], agent['longitude']))
             for agent in pos}
 
 
@@ -87,7 +87,15 @@ def available_archetypes(cur):
     return archetypes - blacklist
 
 
-def get_bounds()
+def get_bounds(cur):
+    archs = available_archetypes(cur)
+    prototypes = {}
+    for arch in archs:
+        arch_dict = get_archetype_position(cur, arch)
+        prototypes = {**prototypes, **arch_dict}
+    coordinates = [tup[2] for tup in list(prototypes.values())]
+    return (np.mean(coordinates[0]), np.mean(coordinates[1]))
+
 
 def plot_agents(cur):
     shapes = ['o', 'v', 's', 'p', '8', 'H']
