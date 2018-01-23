@@ -87,7 +87,7 @@ def available_archetypes(cur):
     return archetypes - blacklist
 
 
-def get_bounds(cur):
+def get_center(cur):
     archs = available_archetypes(cur)
     prototypes = {}
     for arch in archs:
@@ -95,6 +95,17 @@ def get_bounds(cur):
         prototypes = {**prototypes, **arch_dict}
     coordinates = [tup[2] for tup in list(prototypes.values())]
     return (np.mean(coordinates[0]), np.mean(coordinates[1]))
+
+
+def get_bounds(cur):
+    archs = available_archetypes(cur)
+    prototypes = {}
+    for arch in archs:
+        arch_dict = get_archetype_position(cur, arch)
+        prototypes = {**prototypes, **arch_dict}
+    coordinates = [tup[2] for tup in list(prototypes.values())]
+    return [min(coordinates[1]), min(coordinates[0]),
+            max(coordinates[1]), max(coordinates[0])]
 
 
 def plot_agents(cur):
