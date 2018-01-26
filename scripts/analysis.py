@@ -1,3 +1,5 @@
+from mpl_toolkits.basemap import Basemap
+import geopandas as gpd
 import sqlite3 as sql
 import matplotlib.pyplot as plt
 import numpy as np
@@ -79,45 +81,69 @@ def get_archetype_position(cur, archetype):
 
 
 def available_archetypes(cur):
+	""" Returns agentid of all CYCAMORE archetypes
+	excluding ManagerInst, DeployInst, and GrowthRegion.
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+
+    Returns
+    -------
+    archetypes: set
+        set of archetypes available for plotting
+    """
     blacklist = {'ManagerInst',
                  'DeployInst',
                  'GrowthRegion'}
     archetypes = get_archetype_position(cur, 'cycamore')
     archetypes = {v[0] for k, v in archetypes.items()}
-    return archetypes - blacklist
-
-
-def get_center(cur):
-    archs = available_archetypes(cur)
-    prototypes = {}
-    for arch in archs:
-        arch_dict = get_archetype_position(cur, arch)
-        prototypes = {**prototypes, **arch_dict}
-    coordinates = [tup[2] for tup in list(prototypes.values())]
-    return (np.mean(coordinates[0]), np.mean(coordinates[1]))
+    archetypes -= blacklist
+    return archetypes
 
 
 def get_bounds(cur):
+	""" Returns the upper and lower limits of latitude
+	and longitude for use with Basemap.
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+
+    Returns
+    -------
+    bounds: list
+        list with lower left latitude,
+        lower left longitude,
+        upper right latitude,
+        upper right longitude in decimal degrees
+    """
     archs = available_archetypes(cur)
     prototypes = {}
     for arch in archs:
         arch_dict = get_archetype_position(cur, arch)
         prototypes = {**prototypes, **arch_dict}
     coordinates = [tup[2] for tup in list(prototypes.values())]
-    return [min(coordinates[1]), min(coordinates[0]),
-            max(coordinates[1]), max(coordinates[0])]
+    llcrnrlat = min(coordinates[0])
+    llcrnrlon = min(coordinates[1])
+    urcrnrlat = max(coordinates[0])
+    urcrnrlon = max(coordinates[1])
+    
+    bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
+    return bounds
 
 
 def plot_agents(cur):
     shapes = ['o', 'v', 's', 'p', '8', 'H']
     fig = plt.figure(figsize=(20, 15))
-    bounds = get_bounds()
+    bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
-                      urcrnrlat=bounds[1],
-                      llcrnrlon=bounds[2],
+                      llcrnrlon=bounds[1],
+                      urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3])
-    sim_map = Basemap(projection='cyl')
     sim_map.drawcoastlines()
     sim_map.drawcountries()
 
