@@ -82,19 +82,21 @@ def archetype_dataframe(cur, archetype):
 
     Returns
     -------
-    archetypes: set
-        set of archetypes available for plotting
+    positions_df: GeoDataFrame
+        GeoDataFrame object with agentid, prototype, spec,
+        and Point shape
     """
     query = get_archetype_position(cur, archetype)
     positions_df = {}
+    positions_df['agentid'] = []
+    positions_df['prototype'] = []
+    positions_df['spec'] = []
+    positions_df['geometry'] = []
     for k, v in query.items():
-        positions_df['agentid'] = 
-
-    positions_df = {'agentid': [agent['agentid'] for agent in query],
-                    'prototype': [agent['prototype'] for agent in query],
-                    'spec': [agent['spec'] for agent in query],
-                    'geometry': [Point(agent['latitude'],
-                                       agent['longitude']) for agent in query]}
+        positions_df['agentid'].append(k)
+        positions_df['prototype'].append(v[0])
+        positions_df['spec'].append(v[1])
+        positions_df['geometry'].append(Point(v[2], v[3]))
     return gpd.GeoDataFrame(positions_df)
 
 
@@ -131,7 +133,7 @@ def get_bounds(cur):
 
 
 def plot_agents(cur):
-    fig = plt.figure(figsize=(20, 15))
+    fig = plt.figure(1, figsize=(20, 15))
     bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
@@ -143,5 +145,5 @@ def plot_agents(cur):
     archs = {}
     for archetype in available_archetypes(cur):
         archs[archetype] = archetype_dataframe(cur, archetype)
-        archs[archetype].plot()
+    archs['Reactor'].plot()
     plt.show()
