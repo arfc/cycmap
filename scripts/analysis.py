@@ -47,7 +47,7 @@ def available_archetypes(cur):
 
 def get_archetype_position(cur, archetype):
     """ Makes an sqlite query to AgentPosition table to obtain
-    agentid, spec, prototype, latitude, and longitude 
+    agentid, spec, prototype, latitude, and longitude
 
     Parameters
     ----------
@@ -57,7 +57,7 @@ def get_archetype_position(cur, archetype):
     Returns
     -------
     positions: dict
-        dictionary with key=[agentid], 
+        dictionary with key=[agentid],
         and value=[list of prototype, spec, latitude, longitude]
     """
     query = cur.execute("SELECT agentid, spec, prototype, latitude, longitude "
@@ -100,6 +100,17 @@ def archetype_dataframe(cur, archetype):
     return gpd.GeoDataFrame(positions_df)
 
 
+def positions_dictionary(cur):
+    archs = {}
+    for archetype in available_archetypes(cur):
+        archs = {**archs, **get_archetype_position(cur, archetype)}
+    return archs
+
+
+def capacity_marker(cur):
+    query = cur.execute("SELECT ")
+
+
 def get_bounds(cur):
     """ Returns the upper and lower limits of latitude
     and longitude for use with Basemap.
@@ -128,12 +139,18 @@ def get_bounds(cur):
     llcrnrlon = min(longitudes)
     urcrnrlat = max(latitudes)
     urcrnrlon = max(longitudes)
+    extra_lon = (urcrnrlon - llcrnrlon) * 0.1 / 2
+    extra_lat = (urcrnrlat - llcrnrlat) * 0.1 / 2
+    llcrnrlat -= extra_lat
+    llcrnrlon -= extra_lon
+    urcrnrlat += extra_lat
+    urcrnrlon += extra_lon
     bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
     return bounds
 
 
 def plot_agents(cur):
-    fig = plt.figure(1, figsize=(20, 15))
+    fig = plt.figure(1, figsize=(30, 20))
     bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
@@ -142,8 +159,13 @@ def plot_agents(cur):
                       urcrnrlon=bounds[3])
     sim_map.drawcoastlines()
     sim_map.drawcountries()
-    archs = {}
-    for archetype in available_archetypes(cur):
-        archs[archetype] = archetype_dataframe(cur, archetype)
-    archs['Reactor'].plot()
+    for i, arch in enumerate(available_archetypes(cur)):
+        if arch != 'Reactor':
+        pos_dict = positions_dictionary(cur)
+        x, y = sim_map([agent[3] for agent in pos_dict.values()],
+                       [agent[2] for agent in pos_dict.values()])
+        labels = [agent for agent in pos_dict.keys()]
+        sim_map.scatter(x, y)
+        for label, xpt, ypt in zip(labels, x, y):
+            plt.text(xpt, ypt, label, fontsize=8)
     plt.show()
