@@ -1,8 +1,11 @@
+from collections import defaultdict
+from functools import partial
 from mpl_toolkits.basemap import Basemap
 from shapely.geometry import Point
 import geopandas as gpd
 import sqlite3 as sql
 import matplotlib.pyplot as plt
+import matplotlib.animation as ani
 import numpy as np
 
 
@@ -149,6 +152,62 @@ def get_bounds(cur):
     return bounds
 
 
+def find_overlap(lons, lats, labels):
+    coords = [(lon, lat) for lon, lat in zip(lons, lats)]
+    tracker = defaultdict(list)
+    for idx, item in enumerate(coords):
+        tracker[item].append(idx)
+    dups = {key: idx for key, idx in tracker.items() if len(idx) > 1}
+    return dups, lons, lats, labels
+
+
+def merge_overlapping_labels(lons, lats, labels):
+    dups, lons, lats, labels = find_overlap(lons, lats, labels)
+    new_coords = []
+    new_label = []
+    dup_idxs = sum(dups.values(), [])
+    keep_one_idx_list = [idx[0] for idx in dups.values()]
+    for idx in keep_one_idx_list:
+        dup_idxs.remove(idx)
+    for idx in sorted(dup_idxs, reverse=True):
+        del lons[idx]
+        del lats[idx]
+    for i, item in enumerate(labels):
+        if i in keep_one_idx_list:
+            new_label.append(', '.join(map(str, [labels[k]
+                                                 for j in dups.values()
+                                                 if j[0] == i
+                                                 for k in j])))
+        elif i in dup_idxs:
+            continue
+        else:
+            new_label.append(item)
+    return lons, lats, new_label
+
+
+def get_lons_lats_labels(cur, arch):
+    pos_dict = get_archetype_position(cur, arch)
+    lons = [agent[3] for agent in pos_dict.values()]
+    lats = [agent[2] for agent in pos_dict.values()]
+    labels = [agent for agent in pos_dict.keys()]
+    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    return lons, lats, labels
+
+
+def reactor_markers(cur):
+    query = cur.execute("SELECT DISTINCT AGENTPOSITION.agentid, value FROM "
+                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
+                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
+                        "EXCEPT "
+                        "SELECT DISTINCT AGENTPOSITION.agentid, value FROM "
+                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
+                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
+                        "WHERE value = 0")
+    results = [(row['agentid'], row['value']) for row in query]
+    pos_dict = get_archetype_position(cur, 'Reactor')
+    
+
+
 def plot_agents(cur):
     fig = plt.figure(1, figsize=(30, 20))
     bounds = get_bounds(cur)
@@ -159,13 +218,11 @@ def plot_agents(cur):
                       urcrnrlon=bounds[3])
     sim_map.drawcoastlines()
     sim_map.drawcountries()
+    reactor_markers(cur)
     for i, arch in enumerate(available_archetypes(cur)):
-        if arch != 'Reactor':
-        pos_dict = positions_dictionary(cur)
-        x, y = sim_map([agent[3] for agent in pos_dict.values()],
-                       [agent[2] for agent in pos_dict.values()])
-        labels = [agent for agent in pos_dict.keys()]
-        sim_map.scatter(x, y)
-        for label, xpt, ypt in zip(labels, x, y):
-            plt.text(xpt, ypt, label, fontsize=8)
+        if arch == 'Reactor':
+            lons, lats, labels = get_lons_lats_labels(cur, arch)
+            sim_map.scatter(lons, lats)
+            for lon, lat, label in zip(lons, lats, labels):
+                plt.text(lon, lat, label, fontsize=8, va='bottom', ha='center')
     plt.show()
