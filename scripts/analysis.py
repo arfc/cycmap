@@ -152,6 +152,21 @@ def get_bounds(cur):
     return bounds
 
 
+def reactor_markers(cur):
+    query = cur.execute("SELECT DISTINCT longitude, latitude, value FROM "
+                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
+                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
+                        "EXCEPT "
+                        "SELECT DISTINCT longitude, latitude, value FROM "
+                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
+                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
+                        "WHERE value = 0")
+    power_dict = defaultdict(float)
+    for row in query:
+        power_dict[(row['longitude'], row['latitude'])] += row['value'] / 5
+    return power_dict
+
+
 def find_overlap(lons, lats, labels):
     coords = [(lon, lat) for lon, lat in zip(lons, lats)]
     tracker = defaultdict(list)
@@ -163,7 +178,6 @@ def find_overlap(lons, lats, labels):
 
 def merge_overlapping_labels(lons, lats, labels):
     dups, lons, lats, labels = find_overlap(lons, lats, labels)
-    new_coords = []
     new_label = []
     dup_idxs = sum(dups.values(), [])
     keep_one_idx_list = [idx[0] for idx in dups.values()]
@@ -190,22 +204,19 @@ def get_lons_lats_labels(cur, arch):
     lons = [agent[3] for agent in pos_dict.values()]
     lats = [agent[2] for agent in pos_dict.values()]
     labels = [agent for agent in pos_dict.keys()]
-    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
     return lons, lats, labels
 
 
-def reactor_markers(cur):
-    query = cur.execute("SELECT DISTINCT AGENTPOSITION.agentid, value FROM "
-                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
-                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
-                        "EXCEPT "
-                        "SELECT DISTINCT AGENTPOSITION.agentid, value FROM "
-                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
-                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
-                        "WHERE value = 0")
-    results = [(row['agentid'], row['value']) for row in query]
-    pos_dict = get_archetype_position(cur, 'Reactor')
-    
+# def list_transactions(cur):
+#     query = cur.execute("SELECT senderid, receiverid, commodity, time1, "
+#                         "quantity FROM TRANSACTIONS INNER JOIN RESOURCES"
+#                         " ON TRANSACTIONS.resourceid = RESOURCES.resourceid"
+#                         " ")
+#     transaction_dict = defaultdict(list)
+#     for row in query:
+#         senderid = row['senderid']
+#         receiverid = row['receiverid']
+#         transaction_dict[(senderid, receiverid)]
 
 
 def plot_agents(cur):
@@ -218,11 +229,30 @@ def plot_agents(cur):
                       urcrnrlon=bounds[3])
     sim_map.drawcoastlines()
     sim_map.drawcountries()
-    reactor_markers(cur)
+    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
+    sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
     for i, arch in enumerate(available_archetypes(cur)):
         if arch == 'Reactor':
             lons, lats, labels = get_lons_lats_labels(cur, arch)
+            lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+            marker_dict = reactor_markers(cur)
+            for lon, lat, label in zip(lons, lats, labels):
+                plt.text(lon, lat, label,
+                         fontsize=8,
+                         verticalalignment='top',
+                         horizontalalignment='center')
+                sim_map.scatter(lon, lat,
+                                alpha=0.4,
+                                color='grey',
+                                edgecolors='black',
+                                s=marker_dict[(lon, lat)])
+        else:
+            lons, lats, labels = get_lons_lats_labels(cur, arch)
+            lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
             sim_map.scatter(lons, lats)
             for lon, lat, label in zip(lons, lats, labels):
-                plt.text(lon, lat, label, fontsize=8, va='bottom', ha='center')
+                plt.text(lon, lat, label,
+                         fontsize=8,
+                         verticalalignment='center',
+                         horizontalalignment='center')
     plt.show()
