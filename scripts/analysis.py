@@ -207,16 +207,28 @@ def get_lons_lats_labels(cur, arch):
     return lons, lats, labels
 
 
-# def list_transactions(cur):
-#     query = cur.execute("SELECT senderid, receiverid, commodity, time1, "
-#                         "quantity FROM TRANSACTIONS INNER JOIN RESOURCES"
-#                         " ON TRANSACTIONS.resourceid = RESOURCES.resourceid"
-#                         " ")
-#     transaction_dict = defaultdict(list)
-#     for row in query:
-#         senderid = row['senderid']
-#         receiverid = row['receiverid']
-#         transaction_dict[(senderid, receiverid)]
+def list_transactions(cur):
+    agententry = {}
+    query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
+    for row in query:
+        agentid = row['agentid']
+        agententry[agentid] = lifetime
+    query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
+                        "FROM TRANSACTIONS INNER JOIN RESOURCES ON "
+                        "TRANSACTIONS.resourceid = RESOURCES.resourceid")
+    transaction_dict = defaultdict(float)
+    for row in query:
+        senderid = row['senderid']
+        receiverid = row['receiverid']
+        commodity = row['commodity']
+        lifetime = agententry[receiverid]
+        transaction_dict[(senderid, receiverid, commodity)
+                         ] += quantity / lifetime
+    return transaction_dict
+
+
+def transaction_arrows(cur, transaction_dict):
+    
 
 
 def plot_agents(cur):
