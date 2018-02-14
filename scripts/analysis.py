@@ -1,4 +1,5 @@
 from collections import defaultdict
+from decimal import Decimal
 from functools import partial
 from mpl_toolkits.basemap import Basemap
 from shapely.geometry import Point
@@ -63,14 +64,28 @@ def get_archetype_position(cur, archetype):
         dictionary with key=[agentid],
         and value=[list of prototype, spec, latitude, longitude]
     """
-    query = cur.execute("SELECT agentid, spec, prototype, latitude, longitude "
-                        "FROM agentposition WHERE spec LIKE '%" + archetype +
-                        "%' COLLATE NOCASE")
-    positions = {str(agent['agentid']): [agent['prototype'],
-                                         agent['spec'][10:],
-                                         agent['latitude'],
-                                         agent['longitude']]
-                 for agent in query}
+    positions = {}
+    if archetype in ['Cycamore', 'CYCAMORE', 'cycamore']:
+        archs = available_archetypes(cur)
+        for arch in archs:
+            query = cur.execute("SELECT agentid, spec, prototype, latitude, "
+                                "longitude FROM agentposition WHERE spec "
+                                "LIKE '%" + archetype + "%' COLLATE NOCASE")
+            position = {str(agent['agentid']): [agent['prototype'],
+                                                agent['spec'][10:],
+                                                agent['latitude'],
+                                                agent['longitude']]
+                        for agent in query}
+            positions = {**positions, **position}
+    else:
+        query = cur.execute("SELECT agentid, spec, prototype, latitude, "
+                            "longitude FROM agentposition WHERE spec "
+                            "LIKE '%" + archetype + "%' COLLATE NOCASE")
+        positions = {str(agent['agentid']): [agent['prototype'],
+                                             agent['spec'][10:],
+                                             agent['latitude'],
+                                             agent['longitude']]
+                     for agent in query}
     return positions
 
 
@@ -108,10 +123,6 @@ def positions_dictionary(cur):
     for archetype in available_archetypes(cur):
         archs = {**archs, **get_archetype_position(cur, archetype)}
     return archs
-
-
-def capacity_marker(cur):
-    query = cur.execute("SELECT ")
 
 
 def get_bounds(cur):
@@ -161,10 +172,44 @@ def reactor_markers(cur):
                         "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
                         "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
                         "WHERE value = 0")
-    power_dict = defaultdict(float)
+    marker_size = defaultdict(float)
     for row in query:
-        power_dict[(row['longitude'], row['latitude'])] += row['value'] / 5
-    return power_dict
+        marker_size[(row['longitude'], row['latitude'])] += row['value'] / 2
+    return marker_size
+
+
+def list_transactions(cur):
+    agententry = {}
+    query = cur.execute("SELECT endtime FROM FINISH")
+    endtime = [row['endtime'] for row in query][0]
+    query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
+    for row in query:
+        agentid = row['agentid']
+        lifetime = row['lifetime']
+        if lifetime == -1:
+            lifetime = endtime
+        agententry[agentid] = lifetime
+    query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
+                        "FROM TRANSACTIONS INNER JOIN RESOURCES ON "
+                        "TRANSACTIONS.resourceid = RESOURCES.resourceid")
+    transaction_dict = defaultdict(float)
+    for row in query:
+        senderid = row['senderid']
+        receiverid = row['receiverid']
+        quantity = row['quantity']
+        commodity = row['commodity']
+        lifetime = agententry[receiverid]
+        transaction_dict[(senderid, receiverid, commodity)
+                         ] += quantity / (lifetime * 1000)
+    return transaction_dict
+
+
+def get_lons_lats_labels(cur, arch):
+    pos_dict = get_archetype_position(cur, arch)
+    lons = [agent[3] for agent in pos_dict.values()]
+    lats = [agent[2] for agent in pos_dict.values()]
+    labels = [agent for agent in pos_dict.keys()]
+    return lons, lats, labels
 
 
 def find_overlap(lons, lats, labels):
@@ -199,40 +244,29 @@ def merge_overlapping_labels(lons, lats, labels):
     return lons, lats, new_label
 
 
-def get_lons_lats_labels(cur, arch):
-    pos_dict = get_archetype_position(cur, arch)
-    lons = [agent[3] for agent in pos_dict.values()]
-    lats = [agent[2] for agent in pos_dict.values()]
-    labels = [agent for agent in pos_dict.keys()]
-    return lons, lats, labels
+def transaction_arrows(cur, arch, positions):
+    transaction_dict = list_transactions(cur)
+    lons, lats, labels = get_lons_lats_labels(cur, arch)
+    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    arrows = defaultdict(float)
+    for key in transaction_dict.keys():
+        sender_id = str(key[0])
+        receiver_id = str(key[1])
+        commodity = key[2]
+        quantity = transaction_dict[key]
+        sender_coord = (positions[sender_id][3],
+                        positions[sender_id][2])
+        receiver_coord = (positions[receiver_id][3],
+                          positions[receiver_id][2])
+        mean_coord = (np.mean([sender_coord[0], receiver_coord[0]]),
+                      np.mean([sender_coord[1], receiver_coord[1]]))
+        theta = np.arctan2(sender_coord[1] - receiver_coord[1],
+                           sender_coord[0] - receiver_coord[0]) * 180 / np.pi
+        arrows[(mean_coord, theta, commodity)] += quantity
+    return arrows
 
 
-def list_transactions(cur):
-    agententry = {}
-    query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
-    for row in query:
-        agentid = row['agentid']
-        agententry[agentid] = lifetime
-    query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
-                        "FROM TRANSACTIONS INNER JOIN RESOURCES ON "
-                        "TRANSACTIONS.resourceid = RESOURCES.resourceid")
-    transaction_dict = defaultdict(float)
-    for row in query:
-        senderid = row['senderid']
-        receiverid = row['receiverid']
-        commodity = row['commodity']
-        lifetime = agententry[receiverid]
-        transaction_dict[(senderid, receiverid, commodity)
-                         ] += quantity / lifetime
-    return transaction_dict
-
-
-def transaction_arrows(cur, transaction_dict):
-    
-
-
-def plot_agents(cur):
-    fig = plt.figure(1, figsize=(30, 20))
+def plot_basemap(cur, fig):
     bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
@@ -243,28 +277,83 @@ def plot_agents(cur):
     sim_map.drawcountries()
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
+    return sim_map
+
+
+def plot_reactors(cur, basemap):
+    lons, lats, labels = get_lons_lats_labels(cur, 'Reactor')
+    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    marker_dict = reactor_markers(cur)
+    for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
+        if i == 0:
+            basemap.scatter(lon, lat,
+                            alpha=0.4,
+                            color='grey',
+                            label='Reactor',
+                            edgecolors='black',
+                            s=marker_dict[(lon, lat)])
+        else:
+            basemap.scatter(lon, lat,
+                            alpha=0.4,
+                            color='grey',
+                            label='_nolegend_',
+                            edgecolors='black',
+                            s=marker_dict[(lon, lat)])
+        plt.text(lon, lat, label,
+                 fontsize=8,
+                 verticalalignment='top',
+                 horizontalalignment='center')
+
+
+def plot_nonreactors(cur, arch, basemap):
+    colors = ['b', 'g', 'r', 'c', 'm']
+    lons, lats, labels = get_lons_lats_labels(cur, arch)
+    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    basemap.scatter(lons, lats,
+                    alpha=0.4,
+                    label=str(arch),
+                    color=colors[len(arch) % 5])
+    for lon, lat, label in zip(lons, lats, labels):
+        plt.text(lon, lat, label,
+                 fontsize=8,
+                 verticalalignment='center',
+                 horizontalalignment='center')
+
+
+def plot_transaction(cur):
+    positions = get_archetype_position(cur, 'Cycamore')
+    archs = available_archetypes(cur)
+    textbox_arrow_property = dict(boxstyle='rarrow, pad=0.3',
+                                  fc='cyan', alpha=0.3,
+                                  ec='b',
+                                  lw=2)
+    for arch in archs:
+        arrows = transaction_arrows(cur, arch, positions)
+        for key, value in arrows.items():
+            coord = key[0]
+            theta = key[1]
+            commodity = key[2]
+            quantity = value
+            label = commodity + ':\n' + \
+                "{:.3E}".format(Decimal(quantity)) + ' MTHM/month'
+            plt.text(coord[0], coord[1],
+                     label,
+                     rotation=theta, size=7,
+                     ha='center', va='center',
+                     bbox=textbox_arrow_property)
+
+
+def main(sqlite_file):
+    cur = get_cursor(sqlite_file)
+    fig = plt.figure(1, figsize=(30, 20))
+    sim_map = plot_basemap(cur, fig)
     for i, arch in enumerate(available_archetypes(cur)):
         if arch == 'Reactor':
-            lons, lats, labels = get_lons_lats_labels(cur, arch)
-            lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
-            marker_dict = reactor_markers(cur)
-            for lon, lat, label in zip(lons, lats, labels):
-                plt.text(lon, lat, label,
-                         fontsize=8,
-                         verticalalignment='top',
-                         horizontalalignment='center')
-                sim_map.scatter(lon, lat,
-                                alpha=0.4,
-                                color='grey',
-                                edgecolors='black',
-                                s=marker_dict[(lon, lat)])
+            plot_reactors(cur, sim_map)
         else:
-            lons, lats, labels = get_lons_lats_labels(cur, arch)
-            lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
-            sim_map.scatter(lons, lats)
-            for lon, lat, label in zip(lons, lats, labels):
-                plt.text(lon, lat, label,
-                         fontsize=8,
-                         verticalalignment='center',
-                         horizontalalignment='center')
+            plot_nonreactors(cur, arch, sim_map)
+    plot_transaction(cur)
+    legend = plt.legend(loc=0)
+    for handle in legend.legendHandles:
+        handle._sizes = [30]
     plt.show()
