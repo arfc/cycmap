@@ -213,17 +213,16 @@ def get_lons_lats_labels(cur, arch, merge=False):
     return lons, lats, labels
 
 
-def find_overlap(lons, lats, labels):
-    coords = [(lon, lat) for lon, lat in zip(lons, lats)]
+def find_overlap(list_of_sets):
     tracker = defaultdict(list)
-    for idx, item in enumerate(coords):
+    for idx, item in enumerate(list_of_sets):
         tracker[item].append(idx)
     dups = {key: idx for key, idx in tracker.items() if len(idx) > 1}
-    return dups, lons, lats, labels
+    return dups
 
 
 def merge_overlapping_labels(lons, lats, labels):
-    dups, lons, lats, labels = find_overlap(lons, lats, labels)
+    dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
     new_label = []
     dup_idxs = sum(dups.values(), [])
     keep_one_idx_list = [idx[0] for idx in dups.values()]
@@ -245,14 +244,14 @@ def merge_overlapping_labels(lons, lats, labels):
     return lons, lats, new_label
 
 
-def transaction_arrows(cur, arch, positions, transaction_dict):
+def transaction_arrows(cur, arch, positions, transaction_dict, merge=False):
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     rad_to_deg = 180 / np.pi
     arrows = defaultdict(float)
     for key in transaction_dict.keys():
         sender_id = str(key[0])
         receiver_id = str(key[1])
-        commodity = str(key[0]) + ' -> ' + str(key[1])
+        commodity = key[2]
         quantity = transaction_dict[key]
         sender_coord = (positions[sender_id][3],
                         positions[sender_id][2])
@@ -264,8 +263,16 @@ def transaction_arrows(cur, arch, positions, transaction_dict):
                  (sender_coord[1] - receiver_coord[1]) * 0.15)
         arrow_coord = (sender_coord[0] - trans[0],
                        sender_coord[1] - trans[1])
-        arrows[(arrow_coord, theta, commodity)] += quantity
+        arrows[(arrow_coord, theta, sender_id,
+                receiver_id, commodity)] += quantity
+    if merge:
+        return merge_overlapping_arrows(arrows)
     return arrows
+
+
+def merge_overlapping_arrows(arrows):
+    dups = find_overlap([(key[0], key[1]) for key in arrows.keys()])
+    
 
 
 def plot_basemap(cur, fig, archs):
@@ -280,6 +287,13 @@ def plot_basemap(cur, fig, archs):
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
     return sim_map
+
+
+def resize_legend():
+    legend = plt.legend(loc=0)
+    for handle in legend.legendHandles:
+        handle._sizes = [30]
+    plt.show()
 
 
 def plot_reactors(cur, basemap):
@@ -339,13 +353,6 @@ def plot_transaction(cur, archs, positions, transaction_dict):
                      rotation=theta, size=7,
                      ha='center', va='center',
                      bbox=textbox_arrow_property)
-
-
-def resize_legend():
-    legend = plt.legend(loc=0)
-    for handle in legend.legendHandles:
-        handle._sizes = [30]
-    plt.show()
 
 
 def main(sqlite_file):
