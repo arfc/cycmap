@@ -341,6 +341,13 @@ def plot_transaction(cur, archs, positions, transaction_dict):
                      bbox=textbox_arrow_property)
 
 
+def resize_legend():
+    legend = plt.legend(loc=0)
+    for handle in legend.legendHandles:
+        handle._sizes = [30]
+    plt.show()
+
+
 def main(sqlite_file):
     cur = get_cursor(sqlite_file)
     # Commonly used items
@@ -355,7 +362,4 @@ def main(sqlite_file):
         else:
             plot_nonreactors(cur, arch, sim_map)
     plot_transaction(cur, arch, cycamore_positions, transaction_dict)
-    legend = plt.legend(loc=0)
-    for handle in legend.legendHandles:
-        handle._sizes = [30]
-    plt.show()
+    resize_legend()
