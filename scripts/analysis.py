@@ -248,21 +248,24 @@ def transaction_arrows(cur, arch, positions):
     transaction_dict = list_transactions(cur)
     lons, lats, labels = get_lons_lats_labels(cur, arch)
     lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    rad_to_deg = 180 / np.pi
     arrows = defaultdict(float)
     for key in transaction_dict.keys():
         sender_id = str(key[0])
         receiver_id = str(key[1])
-        commodity = key[2]
+        commodity = str(key[0]) + ' -> ' + str(key[1])
         quantity = transaction_dict[key]
         sender_coord = (positions[sender_id][3],
                         positions[sender_id][2])
         receiver_coord = (positions[receiver_id][3],
                           positions[receiver_id][2])
-        mean_coord = (np.mean([sender_coord[0], receiver_coord[0]]),
-                      np.mean([sender_coord[1], receiver_coord[1]]))
         theta = np.arctan2(sender_coord[1] - receiver_coord[1],
-                           sender_coord[0] - receiver_coord[0]) * 180 / np.pi
-        arrows[(mean_coord, theta, commodity)] += quantity
+                           sender_coord[0] - receiver_coord[0]) * rad_to_deg
+        trans = ((sender_coord[0] - receiver_coord[0]) * 0.15,
+                       (sender_coord[1] - receiver_coord[1]) * 0.15)
+        arrow_coord = (sender_coord[0] - trans[0],
+                       sender_coord[1] - trans[1])
+        arrows[(arrow_coord, theta, commodity)] += quantity
     return arrows
 
 
@@ -323,8 +326,8 @@ def plot_nonreactors(cur, arch, basemap):
 def plot_transaction(cur):
     positions = get_archetype_position(cur, 'Cycamore')
     archs = available_archetypes(cur)
-    textbox_arrow_property = dict(boxstyle='rarrow, pad=0.3',
-                                  fc='cyan', alpha=0.3,
+    textbox_arrow_property = dict(boxstyle='larrow, pad=0.3',
+                                  fc='cyan', alpha=0.1,
                                   ec='b',
                                   lw=2)
     for arch in archs:
