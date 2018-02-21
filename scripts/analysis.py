@@ -125,7 +125,7 @@ def positions_dictionary(cur):
     return archs
 
 
-def get_bounds(cur):
+def get_bounds(cur, archs):
     """ Returns the upper and lower limits of latitude
     and longitude for use with Basemap.
 
@@ -142,7 +142,6 @@ def get_bounds(cur):
         upper right latitude,
         upper right longitude in decimal degrees
     """
-    archs = available_archetypes(cur)
     prototypes = {}
     for arch in archs:
         arch_dict = get_archetype_position(cur, arch)
@@ -204,11 +203,13 @@ def list_transactions(cur):
     return transaction_dict
 
 
-def get_lons_lats_labels(cur, arch):
+def get_lons_lats_labels(cur, arch, merge=False):
     pos_dict = get_archetype_position(cur, arch)
     lons = [agent[3] for agent in pos_dict.values()]
     lats = [agent[2] for agent in pos_dict.values()]
     labels = [agent for agent in pos_dict.keys()]
+    if merge:
+        return merge_overlapping_labels(lons, lats, labels)
     return lons, lats, labels
 
 
@@ -244,10 +245,8 @@ def merge_overlapping_labels(lons, lats, labels):
     return lons, lats, new_label
 
 
-def transaction_arrows(cur, arch, positions):
-    transaction_dict = list_transactions(cur)
-    lons, lats, labels = get_lons_lats_labels(cur, arch)
-    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+def transaction_arrows(cur, arch, positions, transaction_dict):
+    lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     rad_to_deg = 180 / np.pi
     arrows = defaultdict(float)
     for key in transaction_dict.keys():
@@ -262,15 +261,15 @@ def transaction_arrows(cur, arch, positions):
         theta = np.arctan2(sender_coord[1] - receiver_coord[1],
                            sender_coord[0] - receiver_coord[0]) * rad_to_deg
         trans = ((sender_coord[0] - receiver_coord[0]) * 0.15,
-                       (sender_coord[1] - receiver_coord[1]) * 0.15)
+                 (sender_coord[1] - receiver_coord[1]) * 0.15)
         arrow_coord = (sender_coord[0] - trans[0],
                        sender_coord[1] - trans[1])
         arrows[(arrow_coord, theta, commodity)] += quantity
     return arrows
 
 
-def plot_basemap(cur, fig):
-    bounds = get_bounds(cur)
+def plot_basemap(cur, fig, archs):
+    bounds = get_bounds(cur, archs)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
                       llcrnrlon=bounds[1],
@@ -284,8 +283,7 @@ def plot_basemap(cur, fig):
 
 
 def plot_reactors(cur, basemap):
-    lons, lats, labels = get_lons_lats_labels(cur, 'Reactor')
-    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
         if i == 0:
@@ -310,8 +308,7 @@ def plot_reactors(cur, basemap):
 
 def plot_nonreactors(cur, arch, basemap):
     colors = ['b', 'g', 'r', 'c', 'm']
-    lons, lats, labels = get_lons_lats_labels(cur, arch)
-    lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
+    lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     basemap.scatter(lons, lats,
                     alpha=0.4,
                     label=str(arch),
@@ -323,15 +320,13 @@ def plot_nonreactors(cur, arch, basemap):
                  horizontalalignment='center')
 
 
-def plot_transaction(cur):
-    positions = get_archetype_position(cur, 'Cycamore')
-    archs = available_archetypes(cur)
+def plot_transaction(cur, archs, positions, transaction_dict):
     textbox_arrow_property = dict(boxstyle='larrow, pad=0.3',
                                   fc='cyan', alpha=0.1,
                                   ec='b',
                                   lw=2)
     for arch in archs:
-        arrows = transaction_arrows(cur, arch, positions)
+        arrows = transaction_arrows(cur, arch, positions, transaction_dict)
         for key, value in arrows.items():
             coord = key[0]
             theta = key[1]
@@ -348,14 +343,18 @@ def plot_transaction(cur):
 
 def main(sqlite_file):
     cur = get_cursor(sqlite_file)
+    # Commonly used items
+    archs = available_archetypes(cur)
+    transaction_dict = list_transactions(cur)
+    cycamore_positions = get_archetype_position(cur, 'Cycamore')
     fig = plt.figure(1, figsize=(30, 20))
-    sim_map = plot_basemap(cur, fig)
-    for i, arch in enumerate(available_archetypes(cur)):
+    sim_map = plot_basemap(cur, fig, archs)
+    for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, sim_map)
         else:
             plot_nonreactors(cur, arch, sim_map)
-    plot_transaction(cur)
+    plot_transaction(cur, arch, cycamore_positions, transaction_dict)
     legend = plt.legend(loc=0)
     for handle in legend.legendHandles:
         handle._sizes = [30]
