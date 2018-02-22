@@ -2,12 +2,15 @@ from collections import defaultdict
 from decimal import Decimal
 from functools import partial
 from mpl_toolkits.basemap import Basemap
-from shapely.geometry import Point
-import geopandas as gpd
 import sqlite3 as sql
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 import numpy as np
+
+RAD_TO_DEG = 180 / np.pi
+KG_TO_TONS = 1 / 1000
+QUANTITY_TO_LINEWIDTH = 1 / 100
+BOUND_ADDITION = 0.1 / 2
 
 
 def get_cursor(file_name):
@@ -89,43 +92,7 @@ def get_archetype_position(cur, archetype):
     return positions
 
 
-def archetype_dataframe(cur, archetype):
-    """ Returns agentid of all CYCAMORE archetypes
-    excluding ManagerInst, DeployInst, and GrowthRegion.
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-        sqlite cursor
-
-    Returns
-    -------
-    positions_df: GeoDataFrame
-        GeoDataFrame object with agentid, prototype, spec,
-        and Point shape
-    """
-    query = get_archetype_position(cur, archetype)
-    positions_df = {}
-    positions_df['agentid'] = []
-    positions_df['prototype'] = []
-    positions_df['spec'] = []
-    positions_df['geometry'] = []
-    for k, v in query.items():
-        positions_df['agentid'].append(k)
-        positions_df['prototype'].append(v[0])
-        positions_df['spec'].append(v[1])
-        positions_df['geometry'].append(Point(v[2], v[3]))
-    return gpd.GeoDataFrame(positions_df)
-
-
-def positions_dictionary(cur):
-    archs = {}
-    for archetype in available_archetypes(cur):
-        archs = {**archs, **get_archetype_position(cur, archetype)}
-    return archs
-
-
-def get_bounds(cur, archs):
+def get_bounds(cur):
     """ Returns the upper and lower limits of latitude
     and longitude for use with Basemap.
 
@@ -142,18 +109,15 @@ def get_bounds(cur, archs):
         upper right latitude,
         upper right longitude in decimal degrees
     """
-    prototypes = {}
-    for arch in archs:
-        arch_dict = get_archetype_position(cur, arch)
-        prototypes = {**prototypes, **arch_dict}
+    prototypes = get_archetype_position(cur, 'Cycamore')
     latitudes = [info[2] for info in list(prototypes.values())]
     longitudes = [info[3] for info in list(prototypes.values())]
     llcrnrlat = min(latitudes)
     llcrnrlon = min(longitudes)
     urcrnrlat = max(latitudes)
     urcrnrlon = max(longitudes)
-    extra_lon = (urcrnrlon - llcrnrlon) * 0.1 / 2
-    extra_lat = (urcrnrlat - llcrnrlat) * 0.1 / 2
+    extra_lon = (urcrnrlon - llcrnrlon) * BOUND_ADDITION
+    extra_lat = (urcrnrlat - llcrnrlat) * BOUND_ADDITION
     llcrnrlat -= extra_lat
     llcrnrlon -= extra_lon
     urcrnrlat += extra_lat
@@ -199,7 +163,7 @@ def list_transactions(cur):
         commodity = row['commodity']
         lifetime = agententry[receiverid]
         transaction_dict[(senderid, receiverid, commodity)
-                         ] += quantity / (lifetime * 1000)
+                         ] += quantity / lifetime
     return transaction_dict
 
 
@@ -244,39 +208,24 @@ def merge_overlapping_labels(lons, lats, labels):
     return lons, lats, new_label
 
 
-def transaction_arrows(cur, arch, positions, transaction_dict, merge=False):
+def transaction_arrows(cur, arch, positions, transaction_dict):
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    rad_to_deg = 180 / np.pi
     arrows = defaultdict(float)
     for key in transaction_dict.keys():
         sender_id = str(key[0])
         receiver_id = str(key[1])
         commodity = key[2]
-        quantity = transaction_dict[key]
+        quantity = transaction_dict[key] * KG_TO_TONS
         sender_coord = (positions[sender_id][3],
                         positions[sender_id][2])
         receiver_coord = (positions[receiver_id][3],
                           positions[receiver_id][2])
-        theta = np.arctan2(sender_coord[1] - receiver_coord[1],
-                           sender_coord[0] - receiver_coord[0]) * rad_to_deg
-        trans = ((sender_coord[0] - receiver_coord[0]) * 0.15,
-                 (sender_coord[1] - receiver_coord[1]) * 0.15)
-        arrow_coord = (sender_coord[0] - trans[0],
-                       sender_coord[1] - trans[1])
-        arrows[(arrow_coord, theta, sender_id,
-                receiver_id, commodity)] += quantity
-    if merge:
-        return merge_overlapping_arrows(arrows)
+        arrows[(sender_coord, receiver_coord, commodity)] += quantity
     return arrows
 
 
-def merge_overlapping_arrows(arrows):
-    dups = find_overlap([(key[0], key[1]) for key in arrows.keys()])
-    
-
-
-def plot_basemap(cur, fig, archs):
-    bounds = get_bounds(cur, archs)
+def plot_basemap(cur, fig):
+    bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
                       llcrnrlon=bounds[1],
@@ -334,39 +283,97 @@ def plot_nonreactors(cur, arch, basemap):
                  horizontalalignment='center')
 
 
-def plot_transaction(cur, archs, positions, transaction_dict):
-    textbox_arrow_property = dict(boxstyle='larrow, pad=0.3',
-                                  fc='cyan', alpha=0.1,
-                                  ec='b',
-                                  lw=2)
+def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
     for arch in archs:
         arrows = transaction_arrows(cur, arch, positions, transaction_dict)
+        # senders = [key[0] for key in arrows.keys()]
+        # receivers = [key[1] for key in arrows.keys()]
+        # commodities = [key[2] for key in arrows.keys()]
+        # quantity = [val for val in arrows.values()]
+        # fig.plot(senders, receivers, latlon=True, linewidth=quantity)
         for key, value in arrows.items():
-            coord = key[0]
-            theta = key[1]
+            point_a = [key[0][0], key[1][0]]
+            point_b = [key[0][1], key[1][1]]
             commodity = key[2]
-            quantity = value
-            label = commodity + ':\n' + \
-                "{:.3E}".format(Decimal(quantity)) + ' MTHM/month'
-            plt.text(coord[0], coord[1],
-                     label,
-                     rotation=theta, size=7,
-                     ha='center', va='center',
-                     bbox=textbox_arrow_property)
+            linewidth = value * QUANTITY_TO_LINEWIDTH
+            sim_map.plot(point_a, point_b, linewidth=linewidth)
 
 
 def main(sqlite_file):
     cur = get_cursor(sqlite_file)
-    # Commonly used items
     archs = available_archetypes(cur)
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     fig = plt.figure(1, figsize=(30, 20))
-    sim_map = plot_basemap(cur, fig, archs)
+    sim_map = plot_basemap(cur, fig)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, sim_map)
         else:
             plot_nonreactors(cur, arch, sim_map)
-    plot_transaction(cur, arch, cycamore_positions, transaction_dict)
+    plot_transaction(cur, sim_map, arch, cycamore_positions, transaction_dict)
     resize_legend()
+
+
+# Text Arrows kept for reference
+# def transaction_arrows(cur, arch, positions, transaction_dict):
+#     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
+#     RAD_TO_DEG = 180 / np.pi
+#     arrows = defaultdict(float)
+#     for key in transaction_dict.keys():
+#         sender_id = str(key[0])
+#         receiver_id = str(key[1])
+#         commodity = key[2]
+#         quantity = transaction_dict[key]
+#         sender_coord = (positions[sender_id][3],
+#                         positions[sender_id][2])
+#         receiver_coord = (positions[receiver_id][3],
+#                           positions[receiver_id][2])
+#         theta = np.arctan2(sender_coord[1] - receiver_coord[1],
+#                            sender_coord[0] - receiver_coord[0]) * RAD_TO_DEG
+#         trans = ((sender_coord[0] - receiver_coord[0]) * 0.15,
+#                  (sender_coord[1] - receiver_coord[1]) * 0.15)
+#         arrow_coord = (sender_coord[0] - trans[0],
+#                        sender_coord[1] - trans[1])
+#         arrows[(arrow_coord, theta, sender_id,
+#                 receiver_id, commodity)] += quantity
+#     return arrows
+# def transaction_arrows(cur, arch, positions, transaction_dict):
+#     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
+
+#     arrows = defaultdict(float)
+#     for key in transaction_dict.keys():
+#         sender_id = str(key[0])
+#         receiver_id = str(key[1])
+#         commodity = key[2]
+#         quantity = transaction_dict[key] * KG_TO_TONS
+#         sender_coord = (positions[sender_id][3],
+#                         positions[sender_id][2])
+#         receiver_coord = (positions[receiver_id][3],
+#                           positions[receiver_id][2])
+#         theta = np.arctan2(sender_coord[1] - receiver_coord[1],
+#                            sender_coord[0] - receiver_coord[0]) * RAD_TO_DEG
+#         trans = ((sender_coord[0] - receiver_coord[0]) * 0.15,
+#                  (sender_coord[1] - receiver_coord[1]) * 0.15)
+#         arrow_coord = (sender_coord[0] - trans[0],
+#                        sender_coord[1] - trans[1])
+#         arrows[(arrow_coord, theta, sender_id,
+#                 receiver_id, commodity)] += quantity
+#     return arrows
+# def plot_transaction(cur, archs, positions, transaction_dict):
+#     textbox_arrow_property = dict(boxstyle='larrow, pad=0.3',
+#                                   fc='cyan', alpha=0.1,
+#                                   ec='b',
+#                                   lw=2)
+#     for arch in archs:
+#         arrows = transaction_arrows(cur, arch, positions, transaction_dict)
+#         for key, value in arrows.items():
+#             sender = key[0]
+#             receiver = key[1]
+#             commodity = key[2]
+#             quantity = value
+#             plt.text(coord[0], coord[1],
+#                      label,
+#                      rotation=theta, size=7,
+#                      ha='center', va='center',
+#                      bbox=textbox_arrow_property)
