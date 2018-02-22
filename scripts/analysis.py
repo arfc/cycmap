@@ -10,7 +10,8 @@ import numpy as np
 RAD_TO_DEG = 180 / np.pi
 KG_TO_TONS = 1 / 1000
 QUANTITY_TO_LINEWIDTH = 1 / 100
-BOUND_ADDITION = 0.1 / 2
+BOUND_ADDITION = 0.05
+CAPACITY_TO_MARKERSIZE = 0.5
 
 
 def get_cursor(file_name):
@@ -73,7 +74,7 @@ def get_archetype_position(cur, archetype):
         for arch in archs:
             query = cur.execute("SELECT agentid, spec, prototype, latitude, "
                                 "longitude FROM agentposition WHERE spec "
-                                "LIKE '%" + archetype + "%' COLLATE NOCASE")
+                                "LIKE '%" + arch + "%' COLLATE NOCASE")
             position = {str(agent['agentid']): [agent['prototype'],
                                                 agent['spec'][10:],
                                                 agent['latitude'],
@@ -137,33 +138,30 @@ def reactor_markers(cur):
                         "WHERE value = 0")
     marker_size = defaultdict(float)
     for row in query:
-        marker_size[(row['longitude'], row['latitude'])] += row['value'] / 2
+        marker_size[(row['longitude'],
+                     row['latitude'])] += row['value'] * CAPACITY_TO_MARKERSIZE
     return marker_size
 
 
 def list_transactions(cur):
     agententry = {}
+    transaction_dict = defaultdict(float)
     query = cur.execute("SELECT endtime FROM FINISH")
     endtime = [row['endtime'] for row in query][0]
     query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
     for row in query:
-        agentid = row['agentid']
         lifetime = row['lifetime']
-        if lifetime == -1:
+        if  lifetime == -1:
             lifetime = endtime
-        agententry[agentid] = lifetime
+        agententry[row['agentid']] = lifetime
     query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
                         "FROM TRANSACTIONS INNER JOIN RESOURCES ON "
                         "TRANSACTIONS.resourceid = RESOURCES.resourceid")
-    transaction_dict = defaultdict(float)
     for row in query:
-        senderid = row['senderid']
-        receiverid = row['receiverid']
-        quantity = row['quantity']
-        commodity = row['commodity']
-        lifetime = agententry[receiverid]
-        transaction_dict[(senderid, receiverid, commodity)
-                         ] += quantity / lifetime
+        lifetime = agententry[row['receiverid']]
+        transaction_dict[(row['senderid'],
+                          row['receiverid'],
+                          row['commodity'])] += row['quantity'] / lifetime
     return transaction_dict
 
 
@@ -224,7 +222,7 @@ def transaction_arrows(cur, arch, positions, transaction_dict):
     return arrows
 
 
-def plot_basemap(cur, fig):
+def plot_basemap(cur):
     bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
@@ -233,8 +231,11 @@ def plot_basemap(cur, fig):
                       urcrnrlon=bounds[3])
     sim_map.drawcoastlines()
     sim_map.drawcountries()
+    sim_map.drawstates()
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
+    sim_map.drawparallels(np.arange(10,70,20),labels=[1,1,0,0])
+    sim_map.drawmeridians(np.arange(-100,0,20),labels=[0,0,0,1])
     return sim_map
 
 
@@ -286,11 +287,6 @@ def plot_nonreactors(cur, arch, basemap):
 def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
     for arch in archs:
         arrows = transaction_arrows(cur, arch, positions, transaction_dict)
-        # senders = [key[0] for key in arrows.keys()]
-        # receivers = [key[1] for key in arrows.keys()]
-        # commodities = [key[2] for key in arrows.keys()]
-        # quantity = [val for val in arrows.values()]
-        # fig.plot(senders, receivers, latlon=True, linewidth=quantity)
         for key, value in arrows.items():
             point_a = [key[0][0], key[1][0]]
             point_b = [key[0][1], key[1][1]]
@@ -305,13 +301,13 @@ def main(sqlite_file):
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     fig = plt.figure(1, figsize=(30, 20))
-    sim_map = plot_basemap(cur, fig)
+    sim_map = plot_basemap(cur)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, sim_map)
         else:
             plot_nonreactors(cur, arch, sim_map)
-    plot_transaction(cur, sim_map, arch, cycamore_positions, transaction_dict)
+    plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
     resize_legend()
 
 
