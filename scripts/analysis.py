@@ -1,7 +1,6 @@
 from collections import defaultdict
-from decimal import Decimal
-from functools import partial
 from mpl_toolkits.basemap import Basemap
+import mpld3
 import sqlite3 as sql
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
@@ -151,7 +150,7 @@ def list_transactions(cur):
     query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
     for row in query:
         lifetime = row['lifetime']
-        if  lifetime == -1:
+        if lifetime == -1:
             lifetime = endtime
         agententry[row['agentid']] = lifetime
     query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
@@ -234,8 +233,8 @@ def plot_basemap(cur):
     sim_map.drawstates()
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
-    sim_map.drawparallels(np.arange(10,70,20),labels=[1,1,0,0])
-    sim_map.drawmeridians(np.arange(-100,0,20),labels=[0,0,0,1])
+    sim_map.drawparallels(np.arange(10, 70, 20), labels=[1, 1, 0, 0])
+    sim_map.drawmeridians(np.arange(-100, 0, 20), labels=[0, 0, 0, 1])
     return sim_map
 
 
@@ -243,45 +242,40 @@ def resize_legend():
     legend = plt.legend(loc=0)
     for handle in legend.legendHandles:
         handle._sizes = [30]
-    plt.show()
+    mpld3.display()
 
 
 def plot_reactors(cur, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
+    markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
+    reactors = basemap.scatter(lons, lats,
+                               alpha=0.4,
+                               color='grey',
+                               label='Reactor',
+                               edgecolors='black',
+                               s=markers)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-        if i == 0:
-            basemap.scatter(lon, lat,
-                            alpha=0.4,
-                            color='grey',
-                            label='Reactor',
-                            edgecolors='black',
-                            s=marker_dict[(lon, lat)])
-        else:
-            basemap.scatter(lon, lat,
-                            alpha=0.4,
-                            color='grey',
-                            label='_nolegend_',
-                            edgecolors='black',
-                            s=marker_dict[(lon, lat)])
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
                  horizontalalignment='center')
+    return reactors
 
 
 def plot_nonreactors(cur, arch, basemap):
     colors = ['b', 'g', 'r', 'c', 'm']
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    basemap.scatter(lons, lats,
-                    alpha=0.4,
-                    label=str(arch),
-                    color=colors[len(arch) % 5])
+    nonreactors = basemap.scatter(lons, lats,
+                                  alpha=0.4,
+                                  label=str(arch),
+                                  color=colors[len(arch) % 5])
     for lon, lat, label in zip(lons, lats, labels):
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='center',
                  horizontalalignment='center')
+    return nonreactors
 
 
 def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
@@ -292,7 +286,7 @@ def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
             point_b = [key[0][1], key[1][1]]
             commodity = key[2]
             linewidth = value * QUANTITY_TO_LINEWIDTH
-            sim_map.plot(point_a, point_b, linewidth=linewidth)
+            sim_map.plot(point_a, point_b, linewidth=linewidth, zorder=0)
 
 
 def main(sqlite_file):
@@ -302,11 +296,19 @@ def main(sqlite_file):
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     fig = plt.figure(1, figsize=(30, 20))
     sim_map = plot_basemap(cur)
+    reactors = []
+    nonreactors = []
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
-            plot_reactors(cur, sim_map)
+            reactors = plot_reactors(cur, sim_map)
         else:
-            plot_nonreactors(cur, arch, sim_map)
+            nonreactors = plot_nonreactors(cur, arch, sim_map)
+    # labels 
     plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
-    resize_legend()
-    
+    # resize_legend()
+    legend = plt.legend(loc=0)
+    for handle in legend.legendHandles:
+        handle._sizes = [30]
+    # mpld3.plugins.connect(fig)
+    # mpld3.show()
+    # plt.show()
