@@ -14,7 +14,7 @@ CAPACITY_TO_MARKERSIZE = 0.5
 
 
 def get_cursor(file_name):
-    """ Connects and returns a cursor to an sqlite output file
+    """ Returns a cursor to an sqlite file
 
     Parameters
     ----------
@@ -31,8 +31,8 @@ def get_cursor(file_name):
 
 
 def available_archetypes(cur):
-    """ Returns list of all CYCAMORE archetypes
-    excluding ManagerInst, DeployInst, and GrowthRegion.
+    """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
+    DeployInst, and GrowthRegion.
 
     Parameters
     ----------
@@ -40,7 +40,8 @@ def available_archetypes(cur):
         sqlite cursor
 
     Returns
-    -------list
+    -------
+    archetypes: list
         list of archetypes available for plotting
     """
     blacklist = {'ManagerInst',
@@ -53,8 +54,8 @@ def available_archetypes(cur):
 
 
 def get_archetype_position(cur, archetype):
-    """ Makes an sqlite query to AgentPosition table to obtain
-    agentid, spec, prototype, latitude, and longitude
+    """ Returns a dictionary of agents of an archetype with their prototype,
+    specification, and coordinates
 
     Parameters
     ----------
@@ -64,8 +65,9 @@ def get_archetype_position(cur, archetype):
     Returns
     -------
     positions: dict
-        dictionary with key=[agentid],
-        and value=[list of prototype, spec, latitude, longitude]
+        dictionary with "
+        key = agentid, and
+        value = list of prototype, spec, latitude, longitude"
     """
     positions = {}
     if archetype in ['Cycamore', 'CYCAMORE', 'cycamore']:
@@ -93,8 +95,8 @@ def get_archetype_position(cur, archetype):
 
 
 def get_bounds(cur):
-    """ Returns the upper and lower limits of latitude
-    and longitude for use with Basemap.
+    """ Returns a list with upper and lower limits of latitude and longitude
+    for use with Basemap.
 
     Parameters
     ----------
@@ -104,7 +106,8 @@ def get_bounds(cur):
     Returns
     -------
     bounds: list
-        list with lower left latitude,
+        list with
+        lower left latitude,
         lower left longitude,
         upper right latitude,
         upper right longitude in decimal degrees
@@ -127,6 +130,21 @@ def get_bounds(cur):
 
 
 def reactor_markers(cur):
+    """ Returns a dictionary of reactor coordinates and marker size using its
+    power capacity
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+
+    Returns
+    -------
+    marker_size: dict
+        dictionary with "
+        key = (longitude, latitude) in float, and
+        value = marker size in float for matplotlib scatter"
+    """
     query = cur.execute("SELECT DISTINCT longitude, latitude, value FROM "
                         "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
                         "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
@@ -143,6 +161,20 @@ def reactor_markers(cur):
 
 
 def list_transactions(cur):
+    """ Returns a dictionary of transactions between agents
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+
+    Returns
+    -------
+    transaction_dict: dict
+        dictionary with "
+        key = (senderid, receiverid, commodity), and
+        value = total transaction quantity over lifetime"
+    """
     agententry = {}
     transaction_dict = defaultdict(float)
     query = cur.execute("SELECT endtime FROM FINISH")
@@ -165,16 +197,53 @@ def list_transactions(cur):
 
 
 def get_lons_lats_labels(cur, arch, merge=False):
+    """ Returns longitude, latititude, and agentid as separate lists. Merges
+    agentids with same lon, lat into comma sepparated string if merge=True
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    arch: str
+        Cycamore archetype
+    merge: bool
+        if True,  agentids with same lon, lat pair are merged
+        if False, agentids with same lon, lat pair are not merged
+
+    Returns
+    -------
+    lons: list
+        list of longitudes
+    lats: list
+        list of latitudes
+    labels: list
+        list of agentids
+    """
     pos_dict = get_archetype_position(cur, arch)
     lons = [agent[3] for agent in pos_dict.values()]
     lats = [agent[2] for agent in pos_dict.values()]
     labels = [agent for agent in pos_dict.keys()]
     if merge:
-        return merge_overlapping_labels(lons, lats, labels)
+        lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
     return lons, lats, labels
 
 
 def find_overlap(list_of_sets):
+    """ Returns a dictionary of duplicate items and their index from a list 
+    of sets
+
+    Parameters
+    ----------
+    list_of_sets: list
+        list of sets
+
+    Returns
+    -------
+    dups: dict
+        dictionary with "
+        key = list of sets, and
+        value = index of duplicate set"
+    """
     tracker = defaultdict(list)
     for idx, item in enumerate(list_of_sets):
         tracker[item].append(idx)
@@ -183,6 +252,28 @@ def find_overlap(list_of_sets):
 
 
 def merge_overlapping_labels(lons, lats, labels):
+    """ Returns truncated lons, lats, labels lists with duplicates removed and
+    labels with same coordinates merged.
+
+    Parameters
+    ----------
+    lons: list
+        list of agent longitudes
+    lats: list
+        list of agent latitudes
+    labels: list
+        list of agentids
+
+    Returns
+    -------
+    lons: list
+        list of agent longitudes without duplicates
+    lats: list
+        list of agent latitudes without duplicates
+    labels: list
+        list of agentid strings where agentids of the same coordinates
+        are merged 
+    """
     dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
     new_label = []
     dup_idxs = sum(dups.values(), [])
@@ -206,6 +297,31 @@ def merge_overlapping_labels(lons, lats, labels):
 
 
 def transaction_arrows(cur, arch, positions, transaction_dict):
+    """ Returns a dictionary of transactions between agents for plotting
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    arch: str
+        Agent archetype
+    positions: dict
+        dictionary of Cycamore agent positions with "
+        key = agentid, and
+        value = list of prototype, spec, latitude, longitude"
+    transaction_dict: dict
+        dictionary of all transactions with "
+        key = (senderid, receiverid, commodity), and
+        value = total transaction quantity over lifetime"
+
+    Returns
+    -------
+    arrows: dict
+        dictionary of transactions and average quantity moved during lifetime
+        with "
+        key = tuple of sender coord, receiver coord, and commodity, and
+        value = average quantity moved during lifetime in [MTHM]"
+    """
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     arrows = defaultdict(float)
     for key in transaction_dict.keys():
@@ -222,6 +338,18 @@ def transaction_arrows(cur, arch, positions, transaction_dict):
 
 
 def plot_basemap(cur):
+    """ Returns a matplotlib basemap for the simulation region
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    
+    Returns
+    -------
+    sim_map: matplotlib basemap
+        matplotlib basemap
+    """
     bounds = get_bounds(cur)
     sim_map = Basemap(projection='cyl',
                       llcrnrlat=bounds[0],
@@ -238,11 +366,19 @@ def plot_basemap(cur):
     return sim_map
 
 
-def resize_legend():
-    legend = plt.legend(loc=0)
+def resize_legend(legend):
+    """ Resizes scatter plot legends to the same size
+
+    Parameters
+    ----------
+    legend: matplotlib legend
+        matplotlib legend
+    
+    Returns
+    -------
+    """
     for handle in legend.legendHandles:
         handle._sizes = [30]
-    mpld3.display()
 
 
 def plot_reactors(cur, basemap):
@@ -305,10 +441,7 @@ def main(sqlite_file):
             nonreactors = plot_nonreactors(cur, arch, sim_map)
     # labels 
     plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
-    # resize_legend()
     legend = plt.legend(loc=0)
-    for handle in legend.legendHandles:
-        handle._sizes = [30]
-    # mpld3.plugins.connect(fig)
-    # mpld3.show()
-    # plt.show()
+    resize_legend(legend)
+    legend = plt.legend(loc=0)
+    
