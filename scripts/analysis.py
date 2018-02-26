@@ -222,20 +222,20 @@ def get_lons_lats_labels(cur, arch, merge=False):
     pos_dict = get_archetype_position(cur, arch)
     lons = [agent[3] for agent in pos_dict.values()]
     lats = [agent[2] for agent in pos_dict.values()]
-    labels = [agent for agent in pos_dict.keys()]
+    labels = [(k, pos_dict[k][0]) for k in pos_dict.keys()]
     if merge:
         lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
     return lons, lats, labels
 
 
-def find_overlap(list_of_sets):
+def find_overlap(list_of_tuples):
     """ Returns a dictionary of duplicate items and their index from a list 
     of sets
 
     Parameters
     ----------
-    list_of_sets: list
-        list of sets
+    list_of_tuples: list
+        list of tuples
 
     Returns
     -------
@@ -245,7 +245,7 @@ def find_overlap(list_of_sets):
         value = index of duplicate set"
     """
     tracker = defaultdict(list)
-    for idx, item in enumerate(list_of_sets):
+    for idx, item in enumerate(list_of_tuples):
         tracker[item].append(idx)
     dups = {key: idx for key, idx in tracker.items() if len(idx) > 1}
     return dups
@@ -276,6 +276,7 @@ def merge_overlapping_labels(lons, lats, labels):
     """
     dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
     new_label = []
+    spec = []
     dup_idxs = sum(dups.values(), [])
     keep_one_idx_list = [idx[0] for idx in dups.values()]
     for idx in keep_one_idx_list:
@@ -285,14 +286,20 @@ def merge_overlapping_labels(lons, lats, labels):
         del lats[idx]
     for i, item in enumerate(labels):
         if i in keep_one_idx_list:
-            new_label.append(', '.join(map(str, [labels[k]
+            new_label.append(', '.join(map(str, [labels[k][0]
+                                                 for j in dups.values()
+                                                 if j[0] == i
+                                                 for k in j])))
+            spec.append(', '.join(map(str, [labels[k][1]
                                                  for j in dups.values()
                                                  if j[0] == i
                                                  for k in j])))
         elif i in dup_idxs:
             continue
         else:
-            new_label.append(item)
+            new_label.append(item[0])
+            spec.append(item[1])
+    new_label = [(a,b) for a, b in zip(new_label, spec)]
     return lons, lats, new_label
 
 
@@ -344,7 +351,7 @@ def plot_basemap(cur):
     ----------
     cur: sqlite cursor
         sqlite cursor
-    
+
     Returns
     -------
     sim_map: matplotlib basemap
@@ -373,7 +380,7 @@ def resize_legend(legend):
     ----------
     legend: matplotlib legend
         matplotlib legend
-    
+
     Returns
     -------
     """
@@ -381,7 +388,7 @@ def resize_legend(legend):
         handle._sizes = [30]
 
 
-def plot_reactors(cur, basemap):
+def plot_reactors(cur, fig, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
@@ -390,28 +397,40 @@ def plot_reactors(cur, basemap):
                                color='grey',
                                label='Reactor',
                                edgecolors='black',
-                               s=markers)
-    for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
+                               s=markers,
+                               zorder=5)
+    agentids = [tup[0] for tup in labels]
+    labels = ['Name: ' + str(tup[1]) + '\n\n\nCapacity: ' +
+              str(marker / CAPACITY_TO_MARKERSIZE) + ' [MW]'
+              for marker, tup in zip(markers, labels)]
+    tooltip = mpld3.plugins.PointLabelTooltip(reactors,
+                                              labels=labels)
+    mpld3.plugins.connect(fig, tooltip)
+    for i, (lon, lat, label) in enumerate(zip(lons, lats, agentids)):
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
                  horizontalalignment='center')
-    return reactors
 
 
-def plot_nonreactors(cur, arch, basemap):
+def plot_nonreactors(cur, arch, fig, basemap):
     colors = ['b', 'g', 'r', 'c', 'm']
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     nonreactors = basemap.scatter(lons, lats,
                                   alpha=0.4,
                                   label=str(arch),
-                                  color=colors[len(arch) % 5])
-    for lon, lat, label in zip(lons, lats, labels):
+                                  color=colors[len(arch) % 5],
+                                  zorder=5)
+    agentids = [tup[0] for tup in labels]
+    labels = ['Name: ' + str(tup[1]) for tup in labels]
+    tooltip = mpld3.plugins.PointLabelTooltip(nonreactors,
+                                              labels=labels)
+    mpld3.plugins.connect(fig, tooltip)
+    for lon, lat, label in zip(lons, lats, agentids):
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='center',
                  horizontalalignment='center')
-    return nonreactors
 
 
 def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
@@ -432,16 +451,13 @@ def main(sqlite_file):
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     fig = plt.figure(1, figsize=(30, 20))
     sim_map = plot_basemap(cur)
-    reactors = []
-    nonreactors = []
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
-            reactors = plot_reactors(cur, sim_map)
+            plot_reactors(cur, fig, sim_map)
         else:
-            nonreactors = plot_nonreactors(cur, arch, sim_map)
-    # labels 
+            plot_nonreactors(cur, arch, fig, sim_map)
     plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
     legend = plt.legend(loc=0)
     resize_legend(legend)
     legend = plt.legend(loc=0)
-    
+    mpld3.show()
