@@ -8,7 +8,7 @@ import numpy as np
 
 RAD_TO_DEG = 180 / np.pi
 KG_TO_TONS = 1 / 1000
-QUANTITY_TO_LINEWIDTH = 1 / 100
+QUANTITY_TO_LINEWIDTH = 1 / 5
 BOUND_ADDITION = 0.05
 CAPACITY_TO_MARKERSIZE = 0.5
 
@@ -363,11 +363,11 @@ def plot_basemap(cur):
                       llcrnrlon=bounds[1],
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3])
-    sim_map.drawcoastlines()
-    sim_map.drawcountries()
-    sim_map.drawstates()
-    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
-    sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
+    sim_map.drawcoastlines(zorder=-15)
+    sim_map.drawcountries(zorder=-10)
+    sim_map.drawstates(zorder=-10)
+    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-10)
+    sim_map.drawmapboundary(fill_color='lightblue', zorder=-20)
     sim_map.drawparallels(np.arange(10, 70, 20), labels=[1, 1, 0, 0])
     sim_map.drawmeridians(np.arange(-100, 0, 20), labels=[0, 0, 0, 1])
     return sim_map
@@ -433,15 +433,18 @@ def plot_nonreactors(cur, arch, fig, basemap):
                  horizontalalignment='center')
 
 
-def plot_transaction(cur, sim_map, archs, positions, transaction_dict):
+def plot_transaction(cur, fig, sim_map, archs, positions, transaction_dict):
     for arch in archs:
         arrows = transaction_arrows(cur, arch, positions, transaction_dict)
         for key, value in arrows.items():
             point_a = [key[0][0], key[1][0]]
             point_b = [key[0][1], key[1][1]]
             commodity = key[2]
-            linewidth = value * QUANTITY_TO_LINEWIDTH
-            sim_map.plot(point_a, point_b, linewidth=linewidth, zorder=0)
+            linewidth = np.log(value * QUANTITY_TO_LINEWIDTH)
+            plot = plt.plot(point_a, point_b, linewidth=linewidth, zorder=0, alpha=0.3)
+            label = str(value) + ' [MTHM/month] of ' + str(commodity)
+            tooltip = mpld3.plugins.LineLabelTooltip(plot[0], label=label)
+            mpld3.plugins.connect(fig, tooltip)
 
 
 def main(sqlite_file):
@@ -456,8 +459,9 @@ def main(sqlite_file):
             plot_reactors(cur, fig, sim_map)
         else:
             plot_nonreactors(cur, arch, fig, sim_map)
-    plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
+    plot_transaction(cur, fig, sim_map, archs, cycamore_positions, transaction_dict)
     legend = plt.legend(loc=0)
     resize_legend(legend)
     legend = plt.legend(loc=0)
-    mpld3.show()
+    mpld3.save_html(fig, 'result.html')
+    plt.close()
