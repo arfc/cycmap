@@ -2,13 +2,14 @@ from collections import defaultdict
 from mpl_toolkits.basemap import Basemap
 import mpld3
 import sqlite3 as sql
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 import numpy as np
 
 RAD_TO_DEG = 180 / np.pi
 KG_TO_TONS = 1 / 1000
-QUANTITY_TO_LINEWIDTH = 1 / 5
+QUANTITY_TO_LINEWIDTH = 0.1
 BOUND_ADDITION = 0.05
 CAPACITY_TO_MARKERSIZE = 0.5
 
@@ -291,15 +292,15 @@ def merge_overlapping_labels(lons, lats, labels):
                                                  if j[0] == i
                                                  for k in j])))
             spec.append(', '.join(map(str, [labels[k][1]
-                                                 for j in dups.values()
-                                                 if j[0] == i
-                                                 for k in j])))
+                                            for j in dups.values()
+                                            if j[0] == i
+                                            for k in j])))
         elif i in dup_idxs:
             continue
         else:
             new_label.append(item[0])
             spec.append(item[1])
-    new_label = [(a,b) for a, b in zip(new_label, spec)]
+    new_label = [(a, b) for a, b in zip(new_label, spec)]
     return lons, lats, new_label
 
 
@@ -368,8 +369,6 @@ def plot_basemap(cur):
     sim_map.drawstates(zorder=-10)
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-10)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-20)
-    sim_map.drawparallels(np.arange(10, 70, 20), labels=[1, 1, 0, 0])
-    sim_map.drawmeridians(np.arange(-100, 0, 20), labels=[0, 0, 0, 1])
     return sim_map
 
 
@@ -400,8 +399,8 @@ def plot_reactors(cur, fig, basemap):
                                s=markers,
                                zorder=5)
     agentids = [tup[0] for tup in labels]
-    labels = ['Name: ' + str(tup[1]) + '\n\n\nCapacity: ' +
-              str(marker / CAPACITY_TO_MARKERSIZE) + ' [MW]'
+    labels = [str(tup[1]) + ' Capacity: ' +
+              str(round(marker / CAPACITY_TO_MARKERSIZE, 2)) + ' [MW]'
               for marker, tup in zip(markers, labels)]
     tooltip = mpld3.plugins.PointLabelTooltip(reactors,
                                               labels=labels)
@@ -413,16 +412,16 @@ def plot_reactors(cur, fig, basemap):
                  horizontalalignment='center')
 
 
-def plot_nonreactors(cur, arch, fig, basemap):
-    colors = ['b', 'g', 'r', 'c', 'm']
+def plot_nonreactors(cur, arch, i, howmany, fig, basemap):
+    colors = cm.rainbow(np.linspace(0, 1, howmany))
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     nonreactors = basemap.scatter(lons, lats,
-                                  alpha=0.4,
+                                  alpha=0.4, s=500,
                                   label=str(arch),
-                                  color=colors[len(arch) % 5],
+                                  color=colors[i],
                                   zorder=5)
     agentids = [tup[0] for tup in labels]
-    labels = ['Name: ' + str(tup[1]) for tup in labels]
+    labels = [str(tup[1]) for tup in labels]
     tooltip = mpld3.plugins.PointLabelTooltip(nonreactors,
                                               labels=labels)
     mpld3.plugins.connect(fig, tooltip)
@@ -441,8 +440,9 @@ def plot_transaction(cur, fig, sim_map, archs, positions, transaction_dict):
             point_b = [key[0][1], key[1][1]]
             commodity = key[2]
             linewidth = np.log(value * QUANTITY_TO_LINEWIDTH)
-            plot = plt.plot(point_a, point_b, linewidth=linewidth, zorder=0, alpha=0.3)
-            label = str(value) + ' [MTHM/month] of ' + str(commodity)
+            plot = plt.plot(point_a, point_b,
+                            linewidth=linewidth, zorder=0, alpha=0.1)
+            label = str(commodity) + ': ' + format(value, '.2f') + ' [MTHM/month]'
             tooltip = mpld3.plugins.LineLabelTooltip(plot[0], label=label)
             mpld3.plugins.connect(fig, tooltip)
 
@@ -452,16 +452,15 @@ def main(sqlite_file):
     archs = available_archetypes(cur)
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
-    fig = plt.figure(1, figsize=(30, 20))
+    fig = plt.figure(1, figsize=(20, 11.25))
     sim_map = plot_basemap(cur)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, fig, sim_map)
         else:
-            plot_nonreactors(cur, arch, fig, sim_map)
-    plot_transaction(cur, fig, sim_map, archs, cycamore_positions, transaction_dict)
+            plot_nonreactors(cur, arch, i, len(archs), fig, sim_map)
+    plot_transaction(cur, fig, sim_map, archs,
+                     cycamore_positions, transaction_dict)
     legend = plt.legend(loc=0)
     resize_legend(legend)
-    legend = plt.legend(loc=0)
     mpld3.save_html(fig, 'result.html')
-    plt.close()
