@@ -361,10 +361,10 @@ def plot_basemap(cur):
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3])
     sim_map.drawcoastlines(zorder=-15)
-    sim_map.drawcountries(zorder=-10)
-    sim_map.drawstates(zorder=-10)
-    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-10)
-    sim_map.drawmapboundary(fill_color='lightblue', zorder=0)
+    sim_map.drawmapboundary(fill_color='lightblue', zorder=-10)
+    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-5)
+    sim_map.drawcountries(zorder=0)
+    sim_map.drawstates(zorder=0)
     return sim_map
 
 
