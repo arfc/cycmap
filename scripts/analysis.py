@@ -372,7 +372,7 @@ def plot_basemap(cur):
     return sim_map
 
 
-def resize_legend(legend):
+def resize_legend(legend, colors):
     """ Resizes scatter plot legends to the same size
 
     Parameters
@@ -383,6 +383,8 @@ def resize_legend(legend):
     Returns
     -------
     """
+    for i, text in enumerate(legend.get_texts()):
+        text.set_color(colors[i])
     for handle in legend.legendHandles:
         handle._sizes = [30]
 
@@ -412,8 +414,7 @@ def plot_reactors(cur, fig, basemap):
                  horizontalalignment='center')
 
 
-def plot_nonreactors(cur, arch, i, howmany, fig, basemap):
-    colors = cm.rainbow(np.linspace(0, 1, howmany))
+def plot_nonreactors(cur, arch, i, colors, fig, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     nonreactors = basemap.scatter(lons, lats,
                                   alpha=0.4, s=500,
@@ -442,7 +443,8 @@ def plot_transaction(cur, fig, sim_map, archs, positions, transaction_dict):
             linewidth = np.log(value * QUANTITY_TO_LINEWIDTH)
             plot = plt.plot(point_a, point_b,
                             linewidth=linewidth, zorder=0, alpha=0.1)
-            label = str(commodity) + ': ' + format(value, '.2f') + ' [MTHM/month]'
+            label = str(commodity) + ': ' + \
+                format(value, '.2f') + ' [MTHM/month]'
             tooltip = mpld3.plugins.LineLabelTooltip(plot[0], label=label)
             mpld3.plugins.connect(fig, tooltip)
 
@@ -452,15 +454,17 @@ def main(sqlite_file):
     archs = available_archetypes(cur)
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
-    fig = plt.figure(1, figsize=(20, 11.25))
+    fig = plt.figure(1, figsize=(30, 16.875))
     sim_map = plot_basemap(cur)
+    colors = cm.rainbow(np.linspace(0, 1, len(archs)))
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, fig, sim_map)
         else:
-            plot_nonreactors(cur, arch, i, len(archs), fig, sim_map)
+            plot_nonreactors(cur, arch, i, colors, fig, sim_map)
     plot_transaction(cur, fig, sim_map, archs,
                      cycamore_positions, transaction_dict)
     legend = plt.legend(loc=0)
-    resize_legend(legend)
+    resize_legend(legend, colors)
     mpld3.save_html(fig, 'result.html')
+    plt.close()
