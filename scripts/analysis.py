@@ -3,13 +3,14 @@ from decimal import Decimal
 from functools import partial
 from mpl_toolkits.basemap import Basemap
 import sqlite3 as sql
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 import numpy as np
 
 RAD_TO_DEG = 180 / np.pi
 KG_TO_TONS = 1 / 1000
-QUANTITY_TO_LINEWIDTH = 1 / 100
+QUANTITY_TO_LINEWIDTH = 0.1
 BOUND_ADDITION = 0.05
 CAPACITY_TO_MARKERSIZE = 0.5
 
@@ -359,11 +360,11 @@ def plot_basemap(cur):
                       llcrnrlon=bounds[1],
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3])
-    sim_map.drawcoastlines()
-    sim_map.drawcountries()
-    sim_map.drawstates()
-    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
-    sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
+    sim_map.drawcoastlines(zorder=-15)
+    sim_map.drawcountries(zorder=-10)
+    sim_map.drawstates(zorder=-10)
+    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-10)
+    sim_map.drawmapboundary(fill_color='lightblue', zorder=0)
     return sim_map
 
 
@@ -405,7 +406,8 @@ def plot_reactors(cur, basemap):
                             color='grey',
                             label='Reactor',
                             edgecolors='black',
-                            s=marker_dict[(lon, lat)])
+                            s=marker_dict[(lon, lat)],
+                            zorder=5)
         else:
             basemap.scatter(lon, lat,
                             alpha=0.4,
@@ -419,7 +421,7 @@ def plot_reactors(cur, basemap):
                  horizontalalignment='center')
 
 
-def plot_nonreactors(cur, arch, basemap):
+def plot_nonreactors(cur, arch, i, colors, basemap):
     """ Scatter plot of nonreactors
 
     Parameters
@@ -434,12 +436,12 @@ def plot_nonreactors(cur, arch, basemap):
     Returns
     -------
     """
-    colors = ['b', 'g', 'r', 'c', 'm']
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     basemap.scatter(lons, lats,
-                    alpha=0.4,
+                    alpha=0.4, s=200,
                     label=str(arch),
-                    color=colors[len(arch) % 5])
+                    color=colors[i],
+                    zorder=5)
     for lon, lat, label in zip(lons, lats, labels):
         plt.text(lon, lat, label,
                  fontsize=8,
@@ -476,8 +478,9 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
             point_a = [key[0][0], key[1][0]]
             point_b = [key[0][1], key[1][1]]
             commodity = key[2]
-            linewidth = value * QUANTITY_TO_LINEWIDTH
-            fig.plot(point_a, point_b, linewidth=linewidth)
+            linewidth = np.log(value * QUANTITY_TO_LINEWIDTH)
+            fig.plot(point_a, point_b,
+                     linewidth=linewidth, zorder=0, alpha=0.1)
 
 
 def main(sqlite_file):
@@ -488,7 +491,7 @@ def main(sqlite_file):
     ----------
     sqlite_file: str
         path to cyclus output sqlite file
-    
+
     Returns
     -------
     """
@@ -496,12 +499,13 @@ def main(sqlite_file):
     archs = available_archetypes(cur)
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
-    fig = plt.figure(1, figsize=(30, 20))
+    colors = cm.rainbow(np.linspace(0, 1, len(archs)))
+    fig = plt.figure(1, figsize=(30, 16.875))
     sim_map = plot_basemap(cur)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, sim_map)
         else:
-            plot_nonreactors(cur, arch, sim_map)
+            plot_nonreactors(cur, arch, i, colors, sim_map)
     plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
     resize_legend()
