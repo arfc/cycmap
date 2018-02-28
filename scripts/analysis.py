@@ -24,11 +24,13 @@ def get_cursor(file_name):
 
     Returns
     -------
-    sqlite cursor3
+    cur: sqlite cursor
+        sqlite cursor
     """
     con = sql.connect(file_name)
     con.row_factory = sql.Row
-    return con.cursor()
+    cur = con.cursor()
+    return cur
 
 
 def available_archetypes(cur):
@@ -263,7 +265,7 @@ def merge_overlapping_labels(lons, lats, labels):
     lats: list
         list of agent latitudes
     labels: list
-        list of agentids
+        list of agent prototype names
 
     Returns
     -------
@@ -271,8 +273,8 @@ def merge_overlapping_labels(lons, lats, labels):
         list of agent longitudes without duplicates
     lats: list
         list of agent latitudes without duplicates
-    labels: list
-        list of agentid strings where agentids of the same coordinates
+    new_label: list
+        list of agentid (prototype, spec) where agentids of the same coordinates
         are merged 
     """
     dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
@@ -372,8 +374,10 @@ def plot_basemap(cur):
     return sim_map
 
 
-def resize_legend(legend, colors):
-    """ Resizes scatter plot legends to the same size
+def change_legend(legend, colors):
+    """ Resizes scatter plot legends to the same size and updates label colors
+    to match marker colors (required for mpld3 due to an issue where mpld3 
+    fails to render markers in legends)
 
     Parameters
     ----------
@@ -390,6 +394,21 @@ def resize_legend(legend, colors):
 
 
 def plot_reactors(cur, fig, basemap):
+    """ Scatter plot of reactors with reactor capacity as marker size, and 
+    labels upon mouse-over.
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    fig: matplotlib figure
+        matplotlib figure
+    basemap: matplotlib basemap
+        matplotlib basemap
+
+    Returns
+    -------
+    """
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
@@ -415,6 +434,26 @@ def plot_reactors(cur, fig, basemap):
 
 
 def plot_nonreactors(cur, arch, i, colors, fig, basemap):
+    """ Scatter plot of nonreactors, and labels upon mouse-over.
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    arch: str
+        cycamore archetype
+    i: int
+        index to reference colors
+    colors: numpy array
+        array of matplotlib colormap
+    fig: matplotlib figure
+        matplotlib figure
+    basemap: matplotlib basemap
+        matplotlib basemap
+
+    Returns
+    -------
+    """
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     nonreactors = basemap.scatter(lons, lats,
                                   alpha=0.4, s=500,
@@ -433,7 +472,29 @@ def plot_nonreactors(cur, arch, i, colors, fig, basemap):
                  horizontalalignment='center')
 
 
-def plot_transaction(cur, fig, sim_map, archs, positions, transaction_dict):
+def plot_transaction(cur, fig, archs, positions, transaction_dict):
+    """ Line plot of transactions during simulation with labels on mouse-over
+
+    Parameters
+    ----------
+    cur: sqlite cursor
+        sqlite cursor
+    fig: matplotlib figure
+        matplotlib figure
+    archs: list
+        list of cycamore archetypes 
+    positions: dict
+        dictionary with "
+        key = agentid, and
+        value = list of prototype, spec, latitude, longitude"
+    transaction_dict: dict
+        dictionary with "
+        key = (senderid, receiverid, commodity), and
+        value = total transaction quantity over lifetime"
+
+    Returns
+    -------
+    """
     for arch in archs:
         arrows = transaction_arrows(cur, arch, positions, transaction_dict)
         for key, value in arrows.items():
@@ -450,6 +511,17 @@ def plot_transaction(cur, fig, sim_map, archs, positions, transaction_dict):
 
 
 def main(sqlite_file):
+    """ Calls all the functions above to produce the map output. Saves the 
+    resulting map as an html file.
+
+    Parameters
+    ----------
+    sqlite_file: str
+        path to cyclus output sqlite file
+    
+    Returns
+    -------
+    """
     cur = get_cursor(sqlite_file)
     archs = available_archetypes(cur)
     transaction_dict = list_transactions(cur)
