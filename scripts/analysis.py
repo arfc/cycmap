@@ -151,7 +151,7 @@ def list_transactions(cur):
     query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
     for row in query:
         lifetime = row['lifetime']
-        if  lifetime == -1:
+        if lifetime == -1:
             lifetime = endtime
         agententry[row['agentid']] = lifetime
     query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
@@ -234,8 +234,6 @@ def plot_basemap(cur):
     sim_map.drawstates()
     sim_map.fillcontinents(color='white', lake_color='aqua', zorder=0)
     sim_map.drawmapboundary(fill_color='lightblue', zorder=-1)
-    sim_map.drawparallels(np.arange(10,70,20),labels=[1,1,0,0])
-    sim_map.drawmeridians(np.arange(-100,0,20),labels=[0,0,0,1])
     return sim_map
 
 
@@ -309,4 +307,3 @@ def main(sqlite_file):
             plot_nonreactors(cur, arch, sim_map)
     plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
     resize_legend()
-    
