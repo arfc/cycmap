@@ -133,7 +133,7 @@ def get_bounds(cur):
 
 
 def reactor_markers(cur):
-	""" Returns a dictionary of reactor coordinates and marker size using its
+    """ Returns a dictionary of reactor coordinates and marker size using its
     power capacity
 
     Parameters
@@ -164,7 +164,7 @@ def reactor_markers(cur):
 
 
 def list_transactions(cur):
-	""" Returns a dictionary of transactions between agents
+    """ Returns a dictionary of transactions between agents
 
     Parameters
     ----------
@@ -200,7 +200,7 @@ def list_transactions(cur):
 
 
 def get_lons_lats_labels(cur, arch, merge=False):
-	""" Returns longitude, latititude, and agentid as separate lists. Merges
+    """ Returns longitude, latititude, and agentid as separate lists. Merges
     agentids with same lon, lat into comma sepparated string if merge=True
 
     Parameters
@@ -232,7 +232,7 @@ def get_lons_lats_labels(cur, arch, merge=False):
 
 
 def find_overlap(list_of_sets):
-	""" Returns a dictionary of duplicate items and their index from a list 
+    """ Returns a dictionary of duplicate items and their index from a list
     of sets
 
     Parameters
@@ -255,7 +255,7 @@ def find_overlap(list_of_sets):
 
 
 def merge_overlapping_labels(lons, lats, labels):
-	""" Returns truncated lons, lats, labels lists with duplicates removed and
+    """ Returns truncated lons, lats, labels lists with duplicates removed and
     labels with same coordinates merged.
 
     Parameters
@@ -274,8 +274,8 @@ def merge_overlapping_labels(lons, lats, labels):
     lats: list
         list of agent latitudes without duplicates
     new_label: list
-        list of agentid (prototype, spec) where agentids of the same coordinates
-        are merged 
+        list of agentid (prototype, spec) where agentids of the same
+        coordinates are merged
     """
     dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
     new_label = []
@@ -300,7 +300,7 @@ def merge_overlapping_labels(lons, lats, labels):
 
 
 def transaction_arrows(cur, arch, positions, transaction_dict):
-	""" Returns a dictionary of transactions between agents for plotting
+    """ Returns a dictionary of transactions between agents for plotting
 
     Parameters
     ----------
@@ -341,7 +341,7 @@ def transaction_arrows(cur, arch, positions, transaction_dict):
 
 
 def plot_basemap(cur):
-	 """ Returns a matplotlib basemap for the simulation region
+    """ Returns a matplotlib basemap for the simulation region
 
     Parameters
     ----------
@@ -368,7 +368,7 @@ def plot_basemap(cur):
 
 
 def resize_legend():
-	""" Resizes scatter plot legends to the same size
+    """ Resizes scatter plot legends to the same size
 
     Parameters
     ----------
@@ -381,11 +381,10 @@ def resize_legend():
     legend = plt.legend(loc=0)
     for handle in legend.legendHandles:
         handle._sizes = [30]
-    plt.show()
 
 
 def plot_reactors(cur, basemap):
-	""" Scatter plot of reactors with reactor capacity as marker size
+    """ Scatter plot of reactors with reactor capacity as marker size
 
     Parameters
     ----------
@@ -421,7 +420,7 @@ def plot_reactors(cur, basemap):
 
 
 def plot_nonreactors(cur, arch, basemap):
-	""" Scatter plot of nonreactors
+    """ Scatter plot of nonreactors
 
     Parameters
     ----------
@@ -449,7 +448,7 @@ def plot_nonreactors(cur, arch, basemap):
 
 
 def plot_transaction(cur, fig, archs, positions, transaction_dict):
-	""" Line plot of transactions during simulation with logarithmic linewidth
+    """ Line plot of transactions during simulation with logarithmic linewidth
 
     Parameters
     ----------
@@ -482,7 +481,7 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
 
 
 def main(sqlite_file):
-	""" Calls all the functions above to produce the map output. Saves the 
+    """ Calls all the functions above to produce the map output. Saves the 
     resulting map as an html file.
 
     Parameters
