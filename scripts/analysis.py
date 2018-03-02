@@ -401,22 +401,15 @@ def plot_reactors(cur, basemap):
     """
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
+    markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
+    basemap.scatter(lons, lats,
+                    alpha=0.4,
+                    color='grey',
+                    label='Reactor',
+                    edgecolors='black',
+                    s=markers,
+                    zorder=5)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-        if i == 0:
-            basemap.scatter(lon, lat,
-                            alpha=0.4,
-                            color='grey',
-                            label='Reactor',
-                            edgecolors='black',
-                            s=marker_dict[(lon, lat)],
-                            zorder=5)
-        else:
-            basemap.scatter(lon, lat,
-                            alpha=0.4,
-                            color='grey',
-                            label='_nolegend_',
-                            edgecolors='black',
-                            s=marker_dict[(lon, lat)])
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
