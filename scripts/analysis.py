@@ -478,6 +478,27 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
                      linewidth=linewidth, zorder=0, alpha=0.1)
 
 
+def hover_helper(event):
+    hover(fig, ax, annot, event)
+
+
+def hover(fig, ax, annot, event):
+    vis = annot.get_visible()
+    if event.inaxes == ax:
+        cont, ind = sc.contains(event)
+        if cont:
+            update_annot(ind)
+            annot.set_visible(True)
+            ax.draw_artist(annot)
+            fig.canvas.update()
+        else:
+            if vis:
+                annot.set_visible(False)
+                fig.canvas.draw_idle()
+                ax.draw_artist(annot)
+                fig.canvas.update()
+
+
 def main(sqlite_file):
     """ Calls all the functions above to produce the map output. Saves the 
     resulting map as an html file.
