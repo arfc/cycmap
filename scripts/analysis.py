@@ -354,18 +354,20 @@ def plot_basemap(cur):
     sim_map: matplotlib basemap
         matplotlib basemap
     """
+    fig, ax = plt.subplots(figsize=(9.8, 7))
     bounds = get_bounds(cur)
-    sim_map = Basemap(projection='cyl',
+    basemap = Basemap(ax=ax,
+                      projection='cyl',
                       llcrnrlat=bounds[0],
                       llcrnrlon=bounds[1],
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3])
-    sim_map.drawcoastlines(zorder=-15)
-    sim_map.drawmapboundary(fill_color='lightblue', zorder=-10)
-    sim_map.fillcontinents(color='white', lake_color='aqua', zorder=-5)
-    sim_map.drawcountries(zorder=0)
-    sim_map.drawstates(zorder=0)
-    return sim_map
+    basemap.drawcoastlines(zorder=-15)
+    basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
+    basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
+    basemap.drawcountries(zorder=0)
+    basemap.drawstates(zorder=0)
+    return fig, ax, basemap
 
 
 def resize_legend():
@@ -379,7 +381,7 @@ def resize_legend():
     Returns
     -------
     """
-    legend = plt.legend(loc=0)
+    legend = plt.legend(loc='best')
     for handle in legend.legendHandles:
         handle._sizes = [30]
 
@@ -500,12 +502,11 @@ def main(sqlite_file):
     transaction_dict = list_transactions(cur)
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     colors = cm.rainbow(np.linspace(0, 1, len(archs)))
-    fig = plt.figure(1, figsize=(30, 16.875))
-    sim_map = plot_basemap(cur)
+    fig, ax, basemap = plot_basemap(cur)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
-            plot_reactors(cur, sim_map)
+            plot_reactors(cur, basemap)
         else:
-            plot_nonreactors(cur, arch, i, colors, sim_map)
-    plot_transaction(cur, sim_map, archs, cycamore_positions, transaction_dict)
+            plot_nonreactors(cur, arch, i, colors, basemap)
+    plot_transaction(cur, basemap, archs, cycamore_positions, transaction_dict)
     resize_legend()
