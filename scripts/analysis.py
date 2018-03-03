@@ -124,7 +124,7 @@ def get_bounds(cur):
     urcrnrlat = max(latitudes)
     urcrnrlon = max(longitudes)
     extra_lon = (urcrnrlon - llcrnrlon) * BOUND_ADDITION
-    extra_lat = (urcrnrlat - llcrnrlat) * BOUND_ADDITION
+    extra_lat = (urcrnrlat - llcrnrlat) * 3 * BOUND_ADDITION
     llcrnrlat -= extra_lat
     llcrnrlon -= extra_lon
     urcrnrlat += extra_lat
@@ -362,7 +362,8 @@ def plot_basemap(cur):
                       llcrnrlon=bounds[1],
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3],
-                      fix_aspect=False)
+                      fix_aspect=False,
+                      anchor='NW')
     basemap.drawcoastlines(zorder=-15)
     basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
     basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
@@ -402,7 +403,7 @@ def plot_reactors(cur, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
-    reactors = basemap.scatter(lons, lats,
+    mpl_collections = basemap.scatter(lons, lats,
                                alpha=0.4,
                                color='grey',
                                label='Reactor',
@@ -414,7 +415,7 @@ def plot_reactors(cur, basemap):
                  fontsize=8,
                  verticalalignment='top',
                  horizontalalignment='center')
-    return reactors
+    return mpl_collections
 
 
 def plot_nonreactors(cur, arch, i, colors, basemap):
@@ -433,7 +434,7 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
     -------
     """
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    non_reactors = basemap.scatter(lons, lats,
+    mpl_collections = basemap.scatter(lons, lats,
                                    alpha=0.4, s=200,
                                    label=str(arch),
                                    color=colors[i],
@@ -443,10 +444,10 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
                  fontsize=8,
                  verticalalignment='center',
                  horizontalalignment='center')
-    return non_reactors
+    return mpl_collections
 
 
-def plot_transaction(cur, fig, archs):
+def plot_transactions(cur, fig, archs):
     """ Line plot of transactions during simulation with logarithmic linewidth
 
     Parameters
@@ -487,6 +488,7 @@ def click(event, fig, ax, annot, collections):
             cont, ind = collection.contains(event)
             if cont:
                 update_annotion(event, 'test', annot, collection)
+                print(collection)
                 annot.set_visible(True)
                 ax.draw_artist(annot)
                 fig.canvas.update()
@@ -497,8 +499,8 @@ def click(event, fig, ax, annot, collections):
 
 
 def interactive_annotate(fig, ax, mpl_collections):
-    annot = ax.annotate("", xy=(0, 0), xytext=(20, -20),
-                        textcoords='offset points',
+    annot = ax.annotate("", xy=(0, 0), xytext=(0.92, 0.8),
+                        textcoords='figure fraction',
                         bbox=dict(boxstyle="round", fc="w"),
                         arrowprops=dict(arrowstyle="->"),
                         zorder=100)
@@ -509,13 +511,16 @@ def interactive_annotate(fig, ax, mpl_collections):
 
 
 def plot_archetypes(cur, ax, archs):
-    colors = cm.rainbow(np.linspace(0, 1, len(archs)))
     mpl_collections = []
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
-            mpl_collections.append(plot_reactors(cur, ax))
+            reactors = plot_reactors(cur, ax)
+            mpl_collections.append(reactors[0])
+            print('Main: ', reactors[0])
         else:
-            mpl_collections.append(plot_nonreactors(cur, arch, i, colors, ax))
+            colors = cm.rainbow(np.linspace(0, 1, len(archs)))
+            non_reactors = plot_nonreactors(cur, arch, i, colors, ax)
+            mpl_collections.append(non_reactors[0])
     return mpl_collections
 
 
@@ -535,7 +540,7 @@ def main(sqlite_file):
     archs = available_archetypes(cur)
     fig, ax, basemap = plot_basemap(cur)
     mpl_collections = plot_archetypes(cur, ax, archs)
-    plot_transaction(cur, basemap, archs)
+    plot_transactions(cur, basemap, archs)
     resize_legend(plt.legend(loc='best'))
     interactive_annotate(fig, ax, mpl_collections)
     plt.show()
