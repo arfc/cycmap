@@ -363,6 +363,9 @@ def plot_basemap(cur):
                       urcrnrlat=bounds[2],
                       urcrnrlon=bounds[3],
                       fix_aspect=False)
+    # basemap = Basemap(ax=ax,
+    #                   projection='cyl',
+    #                   fix_aspect=False)
     basemap.drawcoastlines(zorder=-15)
     basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
     basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
@@ -402,18 +405,19 @@ def plot_reactors(cur, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
-    basemap.scatter(lons, lats,
-                    alpha=0.4,
-                    color='grey',
-                    label='Reactor',
-                    edgecolors='black',
-                    s=markers,
-                    zorder=5)
+    reactors = basemap.scatter(lons, lats,
+                               alpha=0.4,
+                               color='grey',
+                               label='Reactor',
+                               edgecolors='black',
+                               s=markers,
+                               zorder=5)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
                  horizontalalignment='center')
+    return reactors
 
 
 def plot_nonreactors(cur, arch, i, colors, basemap):
@@ -432,16 +436,17 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
     -------
     """
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    basemap.scatter(lons, lats,
-                    alpha=0.4, s=200,
-                    label=str(arch),
-                    color=colors[i],
-                    zorder=5)
+    non_reactors = basemap.scatter(lons, lats,
+                                   alpha=0.4, s=200,
+                                   label=str(arch),
+                                   color=colors[i],
+                                   zorder=5)
     for lon, lat, label in zip(lons, lats, labels):
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='center',
                  horizontalalignment='center')
+    return non_reactors
 
 
 def plot_transaction(cur, fig, archs, positions, transaction_dict):
@@ -478,52 +483,48 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
                      linewidth=linewidth, zorder=0, alpha=0.1)
 
 
-def update_annotion(ind, text):
-    annot.xy = (ind[0], ind[1])
+def update_annotion_scatter(event, text, annot, collection):
+    # pos = collection.get_offsets()[ind["ind"][0]]
+    annot.xy = (event.xdata, event.ydata)
+    annot.xytext = (-110, 60)
     annot.set_text(text)
     annot.get_bbox_patch().set_alpha(0.4)
 
 
-def click_line_helper(fig, ax, annot, event):
+# def click_line(event, fig, ax, annot):
+#     vis = annot.get_visible()
+#     if event.inaxes == ax:
+#         cont,  = sc.contains(event)
+#         if cont:
+#             update_annotion((event.xdata, event.ydata), 'test')
+#             annot.set_visible(True)
+#             ax.draw_artist(annot)
+#             fig.canvas.update()
+#         else:
+#             if vis:
+#                 annot.set_visible(False)
+#                 fig.canvas.draw_idle()
+#                 ax.draw_artist(annot)
+#                 fig.canvas.update()
+
+
+def click_scatter(event, fig, ax, annot, collection):
     vis = annot.get_visible()
     if event.inaxes == ax:
-        cont,  = sc.contains(event)
+        cont, ind = collection.contains(event)
         if cont:
-            update_annotion((event.xdata, event.ydata), 'test')
+            print('hi!')
+            update_annotion_scatter(event, 'test', annot, collection)
             annot.set_visible(True)
-            ax.draw_artist(annot)
-            fig.canvas.update()
+            fig.canvas.draw_idle()
+            # ax.draw_artist(annot)
+            # fig.canvas.update()
         else:
             if vis:
                 annot.set_visible(False)
                 fig.canvas.draw_idle()
-                ax.draw_artist(annot)
-                fig.canvas.update()
-
-
-def click_scatter_helper(fig, ax, annot, event):
-    vis = annot.get_visible()
-    if event.inaxes == ax:
-        cont, ind = sc.contains(event)
-        if cont:
-            update_annotion(ind, 'test')
-            annot.set_visible(True)
-            ax.draw_artist(annot)
-            fig.canvas.update()
-        else:
-            if vis:
-                annot.set_visible(False)
-                fig.canvas.draw_idle()
-                ax.draw_artist(annot)
-                fig.canvas.update()
-
-
-def click_line(event):
-    click_line_helper(fig, ax, annot, event)
-
-
-def click_scatter(event):
-    click_scatter_helper(fig, ax, annot, event)
+                # ax.draw_artist(annot)
+                # fig.canvas.update()
 
 
 def main(sqlite_file):
@@ -544,18 +545,26 @@ def main(sqlite_file):
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     colors = cm.rainbow(np.linspace(0, 1, len(archs)))
     fig, ax, basemap = plot_basemap(cur)
-    annot = ax.annotate("", xy=(0, 0), xytext=(-20, 20),
-                        textcoords="offset points",
+    annot = ax.annotate("", xy=(0, 0), xytext=(1, -1), textcoords='offset points',
                         bbox=dict(boxstyle="round", fc="w"),
-                        arrowprops=dict(arrowstyle="->"))
+                        arrowprops=dict(arrowstyle="->"),
+                        zorder=100
+                        )
     annot.set_visible(False)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
-            plot_reactors(cur, basemap)
+            reactors = plot_reactors(cur, ax)
         else:
-            plot_nonreactors(cur, arch, i, colors, basemap)
-    plot_transaction(cur, basemap, archs, cycamore_positions, transaction_dict)
+            non_reactors = plot_nonreactors(cur, arch, i, colors, ax)
+    transactions = plot_transaction(
+        cur, basemap, archs, cycamore_positions, transaction_dict)
     resize_legend(plt.legend(loc='best'))
-    fig.canvas.mpl_connect('button_press_event', click_line)
-    fig.canvas.mpl_connect('button_press_event', click_scatter)
+    # fig.canvas.mpl_connect('button_press_event',
+    #                        lambda event: click_line(event, fig, ax, annot))
+    fig.canvas.mpl_connect('button_press_event',
+                           lambda event: click_scatter(event, fig, ax,
+                                                       annot, reactors))
+    # fig.canvas.mpl_connect('button_press_event',
+    #                        lambda event: click_scatter(event, fig, ax,
+    #                                                    annot, non_reactors))
     plt.show()
