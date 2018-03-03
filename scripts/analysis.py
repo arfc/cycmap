@@ -361,7 +361,8 @@ def plot_basemap(cur):
                       llcrnrlat=bounds[0],
                       llcrnrlon=bounds[1],
                       urcrnrlat=bounds[2],
-                      urcrnrlon=bounds[3])
+                      urcrnrlon=bounds[3],
+                      fix_aspect=False)
     basemap.drawcoastlines(zorder=-15)
     basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
     basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
@@ -370,7 +371,7 @@ def plot_basemap(cur):
     return fig, ax, basemap
 
 
-def resize_legend():
+def resize_legend(legend):
     """ Resizes scatter plot legends to the same size
 
     Parameters
@@ -381,7 +382,6 @@ def resize_legend():
     Returns
     -------
     """
-    legend = plt.legend(loc='best')
     for handle in legend.legendHandles:
         handle._sizes = [30]
 
@@ -489,7 +489,7 @@ def click_line_helper(fig, ax, annot, event):
     if event.inaxes == ax:
         cont,  = sc.contains(event)
         if cont:
-            update_annotion((event.xdata, event.ydata), text)
+            update_annotion((event.xdata, event.ydata), 'test')
             annot.set_visible(True)
             ax.draw_artist(annot)
             fig.canvas.update()
@@ -506,7 +506,7 @@ def click_scatter_helper(fig, ax, annot, event):
     if event.inaxes == ax:
         cont, ind = sc.contains(event)
         if cont:
-            update_annotion(ind, text)
+            update_annotion(ind, 'test')
             annot.set_visible(True)
             ax.draw_artist(annot)
             fig.canvas.update()
@@ -555,7 +555,7 @@ def main(sqlite_file):
         else:
             plot_nonreactors(cur, arch, i, colors, basemap)
     plot_transaction(cur, basemap, archs, cycamore_positions, transaction_dict)
-    resize_legend()
+    resize_legend(plt.legend(loc='best'))
     fig.canvas.mpl_connect('button_press_event', click_line)
     fig.canvas.mpl_connect('button_press_event', click_scatter)
     plt.show()
