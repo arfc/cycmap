@@ -478,16 +478,18 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
                      linewidth=linewidth, zorder=0, alpha=0.1)
 
 
-def hover_helper(event):
-    hover(fig, ax, annot, event)
+def update_annotion(ind, text):
+    annot.xy = (ind[0], ind[1])
+    annot.set_text(text)
+    annot.get_bbox_patch().set_alpha(0.4)
 
 
-def hover(fig, ax, annot, event):
+def click_line_helper(fig, ax, annot, event):
     vis = annot.get_visible()
     if event.inaxes == ax:
-        cont, ind = sc.contains(event)
+        cont,  = sc.contains(event)
         if cont:
-            update_annot(ind)
+            update_annotion((event.xdata, event.ydata), text)
             annot.set_visible(True)
             ax.draw_artist(annot)
             fig.canvas.update()
@@ -497,6 +499,32 @@ def hover(fig, ax, annot, event):
                 fig.canvas.draw_idle()
                 ax.draw_artist(annot)
                 fig.canvas.update()
+
+
+
+def click_scatter_helper(fig, ax, annot, event):
+    vis = annot.get_visible()
+    if event.inaxes == ax:
+        cont, ind = sc.contains(event)
+        if cont:
+            update_annotion(ind, text)
+            annot.set_visible(True)
+            ax.draw_artist(annot)
+            fig.canvas.update()
+        else:
+            if vis:
+                annot.set_visible(False)
+                fig.canvas.draw_idle()
+                ax.draw_artist(annot)
+                fig.canvas.update()
+
+
+def click_line(event):
+    click_line_helper(fig, ax, annot, event)
+
+
+def click_scatter(event):
+    click_scatter_helper(fig, ax, annot, event)
 
 
 def main(sqlite_file):
@@ -524,3 +552,4 @@ def main(sqlite_file):
             plot_nonreactors(cur, arch, i, colors, basemap)
     plot_transaction(cur, basemap, archs, cycamore_positions, transaction_dict)
     resize_legend()
+    fig.canvas.mpl_connect('button_press_event', hover)
