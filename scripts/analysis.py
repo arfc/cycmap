@@ -501,7 +501,6 @@ def click_line_helper(fig, ax, annot, event):
                 fig.canvas.update()
 
 
-
 def click_scatter_helper(fig, ax, annot, event):
     vis = annot.get_visible()
     if event.inaxes == ax:
@@ -545,6 +544,11 @@ def main(sqlite_file):
     cycamore_positions = get_archetype_position(cur, 'Cycamore')
     colors = cm.rainbow(np.linspace(0, 1, len(archs)))
     fig, ax, basemap = plot_basemap(cur)
+    annot = ax.annotate("", xy=(0, 0), xytext=(-20, 20),
+                        textcoords="offset points",
+                        bbox=dict(boxstyle="round", fc="w"),
+                        arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             plot_reactors(cur, basemap)
@@ -552,4 +556,6 @@ def main(sqlite_file):
             plot_nonreactors(cur, arch, i, colors, basemap)
     plot_transaction(cur, basemap, archs, cycamore_positions, transaction_dict)
     resize_legend()
-    fig.canvas.mpl_connect('button_press_event', hover)
+    fig.canvas.mpl_connect('button_press_event', click_line)
+    fig.canvas.mpl_connect('button_press_event', click_scatter)
+    plt.show()
