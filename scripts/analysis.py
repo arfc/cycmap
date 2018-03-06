@@ -400,22 +400,22 @@ def plot_reactors(cur, basemap):
     Returns
     -------
     """
+    mpl = {}
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
-    markers = [marker_dict[(lon, lat)] for lon, lat in zip(lons, lats)]
-    mpl_collections = basemap.scatter(lons, lats,
-                               alpha=0.4,
-                               color='grey',
-                               label='Reactor',
-                               edgecolors='black',
-                               s=markers,
-                               zorder=5)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
+        mpl.append(basemap.scatter(lon, lat,
+                                   alpha=0.4,
+                                   color='grey',
+                                   label='Reactor' if i == 0 else '',
+                                   edgecolors='black',
+                                   s=marker_dict[(lon, lat)],
+                                   zorder=5))
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
                  horizontalalignment='center')
-    return mpl_collections
+    return mpl
 
 
 def plot_nonreactors(cur, arch, i, colors, basemap):
@@ -433,18 +433,19 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
     Returns
     -------
     """
+    mpl = []
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    mpl_collections = basemap.scatter(lons, lats,
+    for lon, lat, label in zip(lons, lats, labels):
+        mpl.append(basemap.scatter(lon, lat,
                                    alpha=0.4, s=200,
                                    label=str(arch),
                                    color=colors[i],
-                                   zorder=5)
-    for lon, lat, label in zip(lons, lats, labels):
+                                   zorder=5))
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='center',
                  horizontalalignment='center')
-    return mpl_collections
+    return mpl
 
 
 def plot_transactions(cur, fig, archs):
@@ -515,12 +516,11 @@ def plot_archetypes(cur, ax, archs):
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             reactors = plot_reactors(cur, ax)
-            mpl_collections.append(reactors[0])
-            print('Main: ', reactors[0])
+            mpl_collections += reactors
         else:
             colors = cm.rainbow(np.linspace(0, 1, len(archs)))
             non_reactors = plot_nonreactors(cur, arch, i, colors, ax)
-            mpl_collections.append(non_reactors[0])
+            mpl_collections += non_reactors
     return mpl_collections
 
 
