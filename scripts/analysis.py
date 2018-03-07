@@ -404,13 +404,14 @@ def plot_reactors(cur, basemap):
     lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
     marker_dict = reactor_markers(cur)
     for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-        mpl.append(basemap.scatter(lon, lat,
-                                   alpha=0.4,
-                                   color='grey',
-                                   label='Reactor' if i == 0 else '',
-                                   edgecolors='black',
-                                   s=marker_dict[(lon, lat)],
-                                   zorder=5))
+        agents = set(label.split(','))
+        mpl[basemap.scatter(lon, lat,
+                            alpha=0.4,
+                            color='grey',
+                            label='Reactor' if i == 0 else '',
+                            edgecolors='black',
+                            s=marker_dict[(lon, lat)],
+                            zorder=5)] = agents
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='top',
@@ -433,14 +434,15 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
     Returns
     -------
     """
-    mpl = []
+    mpl = {}
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
     for lon, lat, label in zip(lons, lats, labels):
-        mpl.append(basemap.scatter(lon, lat,
-                                   alpha=0.4, s=200,
-                                   label=str(arch),
-                                   color=colors[i],
-                                   zorder=5))
+        agents = set(label.split(','))
+        mpl[basemap.scatter(lon, lat,
+                            alpha=0.4, s=200,
+                            label=str(arch),
+                            color=colors[i],
+                            zorder=5)] = agents
         plt.text(lon, lat, label,
                  fontsize=8,
                  verticalalignment='center',
@@ -476,20 +478,21 @@ def plot_transactions(cur, fig, archs):
                      zorder=0, alpha=0.1)
 
 
-def update_annotion(event, text, annot, collection):
+def update_annotion(event, annot, mpl_object):
     annot.xy = (event.xdata, event.ydata)
     annot.set_text(text)
     annot.get_bbox_patch().set_alpha(0.4)
 
 
+
 def click(event, fig, ax, annot, collections):
     vis = annot.get_visible()
     if event.inaxes == ax:
-        for collection in collections:
-            cont, ind = collection.contains(event)
+        for mpl_object, agent_set in collections.items():
+            cont, ind = mpl_object.contains(event)
             if cont:
-                update_annotion(event, 'test', annot, collection)
-                print(collection)
+                update_annotion(event, annot, mpl_object)
+                print(agent_set)
                 annot.set_visible(True)
                 ax.draw_artist(annot)
                 fig.canvas.update()
@@ -512,15 +515,15 @@ def interactive_annotate(fig, ax, mpl_collections):
 
 
 def plot_archetypes(cur, ax, archs):
-    mpl_collections = []
+    mpl_collections = {}
     for i, arch in enumerate(archs):
         if arch == 'Reactor':
             reactors = plot_reactors(cur, ax)
-            mpl_collections += reactors
+            mpl_collections = {**mpl_collections, **reactors}
         else:
             colors = cm.rainbow(np.linspace(0, 1, len(archs)))
             non_reactors = plot_nonreactors(cur, arch, i, colors, ax)
-            mpl_collections += non_reactors
+            mpl_collections = {**mpl_collections, **non_reactors}
     return mpl_collections
 
 
