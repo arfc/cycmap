@@ -8,11 +8,24 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as ani
 import numpy as np
 
+
+# Conversion Factors
 RAD_TO_DEG = 180 / np.pi
 KG_TO_TONS = 1 / 1000
 QUANTITY_TO_LINEWIDTH = 0.1
 BOUND_ADDITION = 0.05
 CAPACITY_TO_MARKERSIZE = 0.5
+
+# Default Settings for MPL Plotting
+FIGSIZE = (9.8, 5)
+MAIN_PLOT_AXIS_POSITION = [0.05, 0.05, 0.6, 0.9]
+ANNOT_PROPERTY = {'xy': (0, 0), 'xytext': (0.8, 0.8),
+                  'textcoords': 'figure fraction',
+                  'bbox': dict(boxstyle="round",
+                               fc="w", alpha=(0.4))}
+LABEL_PROPERTY = {'fontsize': 8,
+                  'verticalalignment': 'center',
+                  'horizontalalignment': 'center'}
 
 
 def get_cursor(file_name):
@@ -354,9 +367,10 @@ def plot_basemap(cur):
     sim_map: matplotlib basemap
         matplotlib basemap
     """
-    fig, ax = plt.subplots(figsize=(9.8, 7))
+    fig = plt.figure(figsize=FIGSIZE)
+    ax_main = fig.add_axes(MAIN_PLOT_AXIS_POSITION)
     bounds = get_bounds(cur)
-    basemap = Basemap(ax=ax,
+    basemap = Basemap(ax=ax_main,
                       projection='cyl',
                       llcrnrlat=bounds[0],
                       llcrnrlon=bounds[1],
@@ -369,7 +383,7 @@ def plot_basemap(cur):
     basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
     basemap.drawcountries(zorder=0)
     basemap.drawstates(zorder=0)
-    return fig, ax, basemap
+    return fig, ax_main, basemap
 
 
 def resize_legend(legend):
@@ -413,9 +427,9 @@ def plot_reactors(cur, basemap):
                             s=marker_dict[(lon, lat)],
                             zorder=5)] = agents
         plt.text(lon, lat, label,
-                 fontsize=8,
-                 verticalalignment='top',
-                 horizontalalignment='center')
+                 fontsize=LABEL_PROPERTY['fontsize'],
+                 verticalalignment=LABEL_PROPERTY['verticalalignment'],
+                 horizontalalignment=LABEL_PROPERTY['horizontalalignment'])
     return mpl
 
 
@@ -444,9 +458,9 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
                             color=colors[i],
                             zorder=5)] = agents
         plt.text(lon, lat, label,
-                 fontsize=8,
-                 verticalalignment='center',
-                 horizontalalignment='center')
+                 fontsize=LABEL_PROPERTY['fontsize'],
+                 verticalalignment=LABEL_PROPERTY['verticalalignment'],
+                 horizontalalignment=LABEL_PROPERTY['horizontalalignment'])
     return mpl
 
 
@@ -480,9 +494,7 @@ def plot_transactions(cur, fig, archs):
 
 def update_annotion(event, annot, mpl_object):
     annot.xy = (event.xdata, event.ydata)
-    annot.set_text(text)
-    annot.get_bbox_patch().set_alpha(0.4)
-
+    annot.set_text("ME!")
 
 
 def click(event, fig, ax, annot, collections):
@@ -503,11 +515,10 @@ def click(event, fig, ax, annot, collections):
 
 
 def interactive_annotate(fig, ax, mpl_collections):
-    annot = ax.annotate("", xy=(0, 0), xytext=(0.92, 0.8),
-                        textcoords='figure fraction',
-                        bbox=dict(boxstyle="round", fc="w"),
-                        arrowprops=dict(arrowstyle="->"),
-                        zorder=100)
+    annot = ax.annotate("", xy=ANNOT_PROPERTY['xy'],
+                        xytext=ANNOT_PROPERTY['xytext'],
+                        textcoords=ANNOT_PROPERTY['textcoords'],
+                        bbox=ANNOT_PROPERTY['bbox'])
     annot.set_visible(False)
     fig.canvas.mpl_connect('button_press_event',
                            lambda event: click(event, fig, ax,
@@ -544,6 +555,6 @@ def main(sqlite_file):
     fig, ax, basemap = plot_basemap(cur)
     mpl_collections = plot_archetypes(cur, ax, archs)
     plot_transactions(cur, basemap, archs)
-    resize_legend(plt.legend(loc='best'))
+    resize_legend(ax.legend(loc='best'))
     interactive_annotate(fig, ax, mpl_collections)
     plt.show()
