@@ -436,11 +436,11 @@ def plot_nonreactors(cur, arch, i, colors, basemap):
     """
     mpl = {}
     lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    for lon, lat, label in zip(lons, lats, labels):
+    for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
         agents = set(label.split(','))
         mpl[basemap.scatter(lon, lat,
                             alpha=0.4, s=200,
-                            label=str(arch),
+                            label=str(arch) if j == 0 else '',
                             color=colors[i],
                             zorder=5)] = agents
         plt.text(lon, lat, label,
