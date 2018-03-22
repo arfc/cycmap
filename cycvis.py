@@ -4,6 +4,8 @@ import sqlite3 as sql
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class Cycvis():
