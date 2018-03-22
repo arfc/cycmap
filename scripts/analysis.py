@@ -484,19 +484,20 @@ def plot_transactions(cur, fig, archs, positions, transactions):
                      zorder=0, alpha=0.1)
 
 
-def update_annotion(event, annot, cur, agent_set):
+def update_annotion(event, annot, cur, agent_set, transactions, positions):
     annot.xy = (event.xdata, event.ydata)
-    info = agent_summary(cur, agent_set)
+    info = agent_summary(cur, agent_set, transactions, positions)
     annot.set_text(info)
 
 
-def click(event, fig, ax, annot, cur, collections):
+def click(event, fig, ax, annot, cur, collections, transactions, positions):
     vis = annot.get_visible()
     if event.inaxes == ax:
         for mpl_object, agent_set in collections.items():
             cont, ind = mpl_object.contains(event)
             if cont:
-                update_annotion(event, annot, cur, agent_set)
+                update_annotion(event, annot, cur, agent_set,
+                                transactions, positions)
                 print(agent_set)
                 annot.set_visible(True)
                 ax.draw_artist(annot)
@@ -507,15 +508,17 @@ def click(event, fig, ax, annot, cur, collections):
                     fig.canvas.draw_idle()
 
 
-def interactive_annotate(fig, ax, mpl_collections, cur):
+def interactive_annotate(cur, fig, ax, positions, transactions,
+                         mpl_collections):
     annot = ax.annotate('', xy=ANNOT_PROPERTY['xy'],
+                        bbox=ANNOT_PROPERTY['bbox'],
                         xytext=ANNOT_PROPERTY['xytext'],
-                        textcoords=ANNOT_PROPERTY['textcoords'],
-                        bbox=ANNOT_PROPERTY['bbox'])
+                        textcoords=ANNOT_PROPERTY['textcoords'])
     annot.set_visible(False)
     fig.canvas.mpl_connect('button_press_event',
                            lambda event: click(event, fig, ax,
-                                               annot, cur, mpl_collections))
+                                               annot, cur, mpl_collections,
+                                               transactions, positions))
 
 
 def plot_archetypes(cur, ax, archs):
@@ -531,7 +534,7 @@ def plot_archetypes(cur, ax, archs):
     return mpl_collections
 
 
-def agent_summary(cur, agent_set):
+def agent_summary(cur, agent_set, transactions, positions):
     # Lifetime, Power Generated, Transaction Items,
     # Avg Transaction, Name, Coord
     # query = cur.execute('FROM')
@@ -558,6 +561,6 @@ def main(sqlite_file):
     mpl_collections = plot_archetypes(cur, ax, archs)
     plot_transactions(cur, basemap, archs, positions, transactions)
     resize_legend(ax.legend(loc='best'))
-    interactive_annotate(fig, ax, mpl_collections, cur)
+    interactive_annotate(cur, fig, ax, mpl_collections)
     fig.savefig('result.png')
     plt.show()
