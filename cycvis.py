@@ -4,6 +4,7 @@ import sqlite3 as sql
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -559,3 +560,9 @@ def main(sqlite_file):
     cycvis.interactive_annotate()
     cycvis.fig.savefig('result.png')
     plt.show()
+
+
+if __name__ == "__main__":
+    print('Running Directly')
+    print('Usage: python cycvis.py [cyclus_output.sqlite]')
+    main(sys.argv[1])
