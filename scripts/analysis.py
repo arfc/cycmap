@@ -4,7 +4,6 @@ import mpld3
 import sqlite3 as sql
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import matplotlib.animation as ani
 import numpy as np
 
 RAD_TO_DEG = 180 / np.pi
@@ -64,6 +63,8 @@ def get_archetype_position(cur, archetype):
     ----------
     cur: sqlite cursor
         sqlite cursor
+    archetype: str
+        cycamore archetype specification
 
     Returns
     -------
@@ -232,7 +233,7 @@ def get_lons_lats_labels(cur, arch, merge=False):
 
 
 def find_overlap(list_of_tuples):
-    """ Returns a dictionary of duplicate items and their index from a list 
+    """ Returns a dictionary of duplicate items and their index from a list
     of sets
 
     Parameters
@@ -274,8 +275,8 @@ def merge_overlapping_labels(lons, lats, labels):
     lats: list
         list of agent latitudes without duplicates
     new_label: list
-        list of agentid (prototype, spec) where agentids of the same coordinates
-        are merged 
+        list of agentid (prototype, spec) where agentids of the same
+        coordinates are merged
     """
     dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
     new_label = []
@@ -376,13 +377,15 @@ def plot_basemap(cur):
 
 def change_legend(legend, colors):
     """ Resizes scatter plot legends to the same size and updates label colors
-    to match marker colors (required for mpld3 due to an issue where mpld3 
+    to match marker colors (required for mpld3 due to an issue where mpld3
     fails to render markers in legends)
 
     Parameters
     ----------
     legend: matplotlib legend
         matplotlib legend
+    colors: numpy ndarray
+        numpy ndarray specifying matplotlib color map
 
     Returns
     -------
@@ -394,7 +397,7 @@ def change_legend(legend, colors):
 
 
 def plot_reactors(cur, fig, basemap):
-    """ Scatter plot of reactors with reactor capacity as marker size, and 
+    """ Scatter plot of reactors with reactor capacity as marker size, and
     labels upon mouse-over.
 
     Parameters
@@ -444,8 +447,8 @@ def plot_nonreactors(cur, arch, i, colors, fig, basemap):
         cycamore archetype
     i: int
         index to reference colors
-    colors: numpy array
-        array of matplotlib colormap
+    colors: numpy ndarray
+        numpy ndarray specifying matplotlib color map
     fig: matplotlib figure
         matplotlib figure
     basemap: matplotlib basemap
@@ -482,7 +485,7 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
     fig: matplotlib figure
         matplotlib figure
     archs: list
-        list of cycamore archetypes 
+        list of cycamore archetypes
     positions: dict
         dictionary with "
         key = agentid, and
@@ -511,14 +514,14 @@ def plot_transaction(cur, fig, archs, positions, transaction_dict):
 
 
 def main(sqlite_file):
-    """ Calls all the functions above to produce the map output. Saves the 
+    """ Calls all the functions above to produce the map output. Saves the
     resulting map as an html file.
 
     Parameters
     ----------
     sqlite_file: str
         path to cyclus output sqlite file
-    
+
     Returns
     -------
     """
@@ -539,4 +542,3 @@ def main(sqlite_file):
     legend = plt.legend(loc=0)
     change_legend(legend, colors)
     mpld3.save_html(fig, 'result.html')
-    # plt.close()
