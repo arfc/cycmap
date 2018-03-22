@@ -1,6 +1,10 @@
 # CyclusVis
 Visualization of Agent positions and commodity transfer.
+
 Visualization of Cyclus simulation results as a map.
+
+This branch is currently outdated (please use the script
+from the master branch instead!)
 
 
 # Required Packages
