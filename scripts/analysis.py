@@ -508,9 +508,7 @@ def click(event, fig, ax, annot, cur, collections, transactions, positions):
                     fig.canvas.draw_idle()
 
 
-def interactive_annotate(cur, fig, ax,
-    positions,
-    transactions,
+def interactive_annotate(cur, fig, ax, positions, transactions,
                          mpl_collections):
     annot = ax.annotate('', xy=ANNOT_PROPERTY['xy'],
                         bbox=ANNOT_PROPERTY['bbox'],
@@ -519,7 +517,8 @@ def interactive_annotate(cur, fig, ax,
     annot.set_visible(False)
     fig.canvas.mpl_connect('button_press_event',
                            lambda event: click(event, fig, ax,
-                                               annot, cur, mpl_collections, transactions, positions))
+                                               annot, cur, mpl_collections,
+                                               transactions, positions))
 
 
 def plot_archetypes(cur, ax, archs):
