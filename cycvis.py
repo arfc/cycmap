@@ -6,536 +6,537 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Conversion Factors
-RAD_TO_DEG = 180 / np.pi
-KG_TO_TONS = 1 / 1000
-QUANTITY_TO_LINEWIDTH = 0.1
-BOUND_ADDITION = 0.05
-CAPACITY_TO_MARKERSIZE = 0.5
+class Cycvis():
+    rad_to_deg = 180 / np.pi
+    kg_to_tons = 1 / 1000
+    quantity_to_linewidth = 0.1
+    bound_addition = 0.05
+    capacity_to_markersize = 0.5
 
-# Default Settings for MPL Plotting
-FIGSIZE = (9.8, 5)
-MAIN_PLOT_AXIS_POSITION = [0.05, 0.05, 0.6, 0.9]
-ANNOT_PROPERTY = {'xy': (0, 0), 'xytext': (0.665, 0.92),
-                  'textcoords': 'figure fraction',
-                  'bbox': dict(boxstyle="round",
-                               fc="w", alpha=(0.4))}
-LABEL_PROPERTY = {'fontsize': 8,
-                  'verticalalignment': 'center',
-                  'horizontalalignment': 'center'}
+    # default settings for mpl plotting
+    figsize = (9.8, 5)
+    main_plot_axis_position = [0.05, 0.05, 0.6, 0.9]
+    annot_property = {'xy': (0, 0),
+                      'xytext': (0.665, 0.92),
+                      'textcoords': 'figure fraction',
+                      'bbox': dict(boxstyle="round",
+                                   alpha=(0.4),
+                                   fc="w")}
+    label_property = {'fontsize': 8,
+                      'vert_align': 'center',
+                      'horz_align': 'center'}
 
+    def __init__(self, file_name):
+        self.cur = self.get_cursor(file_name)
+        self.archs = self.available_archetypes()
+        self.transactions = self.list_transactions()
+        self.positions = self.get_archetype_position('Cycamore')
+        self.bounds = self.get_bounds()
+        self.fig, self.ax, self.basemap = self.plot_basemap()
+        self.reactor_markers = self.reactor_markers()
+        self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
+        self.mpl_collections = self.plot_archetypes()
 
-def get_cursor(file_name):
-    """ Returns a cursor to an sqlite file
+    def get_cursor(self, file_name):
+        """ Returns a cursor to an sqlite file
 
-    Parameters
-    ----------
-    file_name: str
-            name of the sqlite file
+        Parameters
+        ----------
+        file_name: str
+                name of the sqlite file
 
-    Returns
-    -------
-    cur: sqlite cursor
-            sqlite cursor
-    """
-    con = sql.connect(file_name)
-    con.row_factory = sql.Row
-    cur = con.cursor()
-    return cur
+        Returns
+        -------
+        cur: sqlite cursor
+                sqlite cursor
+        """
+        con = sql.connect(file_name)
+        con.row_factory = sql.Row
+        cur = con.cursor()
+        return cur
 
+    def available_archetypes(self):
+        """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
+        DeployInst, and GrowthRegion.
 
-def available_archetypes(cur):
-    """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
-    DeployInst, and GrowthRegion.
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
+        Returns
+        -------
+        archetypes: list
+                list of archetypes available for plotting
+        """
+        blacklist = {'ManagerInst',
+                     'DeployInst',
+                     'GrowthRegion'}
+        query = ("SELECT spec FROM agentposition"
+                 " WHERE spec LIKE '%cycamore%'"
+                 " COLLATE NOCASE")
+        results = self.cur.execute(query)
+        archetypes = {agent['spec'][10:] for agent in results} - blacklist
+        return list(archetypes)
 
-    Returns
-    -------
-    archetypes: list
-            list of archetypes available for plotting
-    """
-    blacklist = {'ManagerInst',
-                 'DeployInst',
-                 'GrowthRegion'}
-    query = cur.execute("SELECT spec FROM agentposition WHERE spec"
-                        " LIKE '%cycamore%' COLLATE NOCASE")
-    archetypes = {agent['spec'][10:] for agent in query} - blacklist
-    return list(archetypes)
+    def get_archetype_position(self, archetype):
+        """ Returns a dictionary of agents of an archetype with their prototype,
+        specification, and coordinates
 
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
-def get_archetype_position(cur, archetype):
-    """ Returns a dictionary of agents of an archetype with their prototype,
-    specification, and coordinates
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-
-    Returns
-    -------
-    positions: dict
-            dictionary with "
-            key = agentid, and
-            value = list of prototype, spec, latitude, longitude"
-    """
-    positions = {}
-    if archetype in ['Cycamore', 'CYCAMORE', 'cycamore']:
-        for arch in available_archetypes(cur):
-            query = cur.execute("SELECT agentid, spec, prototype, latitude, "
-                                "longitude FROM agentposition WHERE spec "
-                                "LIKE '%" + arch + "%' COLLATE NOCASE")
-            position = {str(agent['agentid']): [agent['prototype'],
-                                                agent['spec'][10:],
-                                                agent['latitude'],
-                                                agent['longitude']]
-                        for agent in query}
-            positions = {**positions, **position}
-    else:
-        query = cur.execute("SELECT agentid, spec, prototype, latitude, "
-                            "longitude FROM agentposition WHERE spec "
-                            "LIKE '%" + archetype + "%' COLLATE NOCASE")
-        positions = {str(agent['agentid']): [agent['prototype'],
-                                             agent['spec'][10:],
-                                             agent['latitude'],
-                                             agent['longitude']]
-                     for agent in query}
-    return positions
-
-
-def get_bounds(cycamore_positions_dict):
-    """ Returns a list with upper and lower limits of latitude and longitude
-    for use with Basemap.
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-
-    Returns
-    -------
-    bounds: list
-            list with
-            lower left latitude,
-            lower left longitude,
-            upper right latitude,
-            upper right longitude in decimal degrees
-    """
-    latitudes = [info[2] for info in list(cycamore_positions_dict.values())]
-    longitudes = [info[3] for info in list(cycamore_positions_dict.values())]
-    llcrnrlat = min(latitudes)
-    llcrnrlon = min(longitudes)
-    urcrnrlat = max(latitudes)
-    urcrnrlon = max(longitudes)
-    extra_lon = (urcrnrlon - llcrnrlon) * BOUND_ADDITION
-    extra_lat = (urcrnrlat - llcrnrlat) * 3 * BOUND_ADDITION
-    llcrnrlat -= extra_lat
-    llcrnrlon -= extra_lon
-    urcrnrlat += extra_lat
-    urcrnrlon += extra_lon
-    bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
-    return bounds
-
-
-def reactor_markers(cur):
-    """ Returns a dictionary of reactor coordinates and marker size using its
-    power capacity
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-
-    Returns
-    -------
-    marker_size: dict
-            dictionary with "
-            key = (longitude, latitude) in float, and
-            value = marker size in float for matplotlib scatter"
-    """
-    query = cur.execute("SELECT DISTINCT longitude, latitude, value FROM "
-                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
-                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
-                        "EXCEPT "
-                        "SELECT DISTINCT longitude, latitude, value FROM "
-                        "TIMESERIESPOWER INNER JOIN AGENTPOSITION ON "
-                        "TIMESERIESPOWER.agentid = AGENTPOSITION.agentid "
-                        "WHERE value = 0")
-    marker_size = defaultdict(float)
-    for row in query:
-        marker_size[(row['longitude'],
-                     row['latitude'])] += row['value'] * CAPACITY_TO_MARKERSIZE
-    return marker_size
-
-
-def list_transactions(cur):
-    """ Returns a dictionary of transactions between agents
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-
-    Returns
-    -------
-    transaction_dict: dict
-            dictionary with "
-            key = (senderid, receiverid, commodity), and
-            value = total transaction quantity over lifetime"
-    """
-    agententry = {}
-    transaction_dict = defaultdict(float)
-    query = cur.execute("SELECT endtime FROM FINISH")
-    endtime = [row['endtime'] for row in query][0]
-    query = cur.execute("SELECT agentid, entertime, lifetime FROM AGENTENTRY")
-    for row in query:
-        lifetime = row['lifetime']
-        if lifetime == -1:
-            lifetime = endtime
-        agententry[row['agentid']] = lifetime
-    query = cur.execute("SELECT senderid, receiverid, commodity, quantity "
-                        "FROM TRANSACTIONS INNER JOIN RESOURCES ON "
-                        "TRANSACTIONS.resourceid = RESOURCES.resourceid")
-    for row in query:
-        lifetime = agententry[row['receiverid']]
-        transaction_dict[(row['senderid'],
-                          row['receiverid'],
-                          row['commodity'])] += row['quantity'] / lifetime
-    return transaction_dict
-
-
-def get_lons_lats_labels(cur, arch, merge=False):
-    """ Returns longitude, latititude, and agentid as separate lists. Merges
-    agentids with same lon, lat into comma sepparated string if merge=True
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-    arch: str
-            Cycamore archetype
-    merge: bool
-            if True,  agentids with same lon, lat pair are merged
-            if False, agentids with same lon, lat pair are not merged
-
-    Returns
-    -------
-    lons: list
-            list of longitudes
-    lats: list
-            list of latitudes
-    labels: list
-            list of agentids
-    """
-    pos_dict = get_archetype_position(cur, arch)
-    lons = [agent[3] for agent in pos_dict.values()]
-    lats = [agent[2] for agent in pos_dict.values()]
-    labels = [agent for agent in pos_dict.keys()]
-    if merge:
-        lons, lats, labels = merge_overlapping_labels(lons, lats, labels)
-    return lons, lats, labels
-
-
-def find_overlap(list_of_sets):
-    """ Returns a dictionary of duplicate items and their index from a list
-    of sets
-
-    Parameters
-    ----------
-    list_of_tuples: list
-            list of tuples
-
-    Returns
-    -------
-    dups: dict
-            dictionary with "
-            key = list of sets, and
-            value = index of duplicate set"
-    """
-    tracker = defaultdict(list)
-    for idx, item in enumerate(list_of_sets):
-        tracker[item].append(idx)
-    dups = {key: idx for key, idx in tracker.items() if len(idx) > 1}
-    return dups
-
-
-def merge_overlapping_labels(lons, lats, labels):
-    """ Returns truncated lons, lats, labels lists with duplicates removed and
-    labels with same coordinates merged.
-
-    Parameters
-    ----------
-    lons: list
-            list of agent longitudes
-    lats: list
-            list of agent latitudes
-    labels: list
-            list of agent prototype names
-
-    Returns
-    -------
-    lons: list
-            list of agent longitudes without duplicates
-    lats: list
-            list of agent latitudes without duplicates
-    new_label: list
-            list of agentid (prototype, spec) where agentids of the same
-            coordinates are merged
-    """
-    dups = find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
-    new_label = []
-    dup_idxs = sum(dups.values(), [])
-    keep_one_idx_list = [idx[0] for idx in dups.values()]
-    for idx in keep_one_idx_list:
-        dup_idxs.remove(idx)
-    for idx in sorted(dup_idxs, reverse=True):
-        del lons[idx]
-        del lats[idx]
-    for i, item in enumerate(labels):
-        if i in keep_one_idx_list:
-            new_label.append(', '.join(map(str, [labels[k]
-                                                 for j in dups.values()
-                                                 if j[0] == i
-                                                 for k in j])))
-        elif i in dup_idxs:
-            continue
+        Returns
+        -------
+        positions: dict
+                dictionary with "
+                key = agentid, and
+                value = list of prototype, spec, latitude, longitude"
+        """
+        positions = {}
+        if archetype in ['Cycamore', 'CYCAMORE', 'cycamore']:
+            for arch in self.archs:
+                query = ("SELECT agentid, spec, prototype, latitude, longitude"
+                         " FROM agentposition WHERE spec LIKE '%" + arch + "%'"
+                         " COLLATE NOCASE")
+                results = self.cur.execute(query)
+                position = {str(agent['agentid']): [agent['prototype'],
+                                                    agent['spec'][10:],
+                                                    agent['latitude'],
+                                                    agent['longitude']]
+                            for agent in results}
+                positions = {**positions, **position}
         else:
-            new_label.append(item)
-    return lons, lats, new_label
+            query = ("SELECT agentid, spec, prototype, latitude, longitude"
+                     " FROM agentposition WHERE spec LIKE"
+                     " '%" + archetype + "%' COLLATE NOCASE")
+            results = self.cur.execute(query)
+            positions = {str(agent['agentid']): [agent['prototype'],
+                                                 agent['spec'][10:],
+                                                 agent['latitude'],
+                                                 agent['longitude']]
+                         for agent in results}
+        return positions
 
+    def get_bounds(self):
+        """ Returns a list with upper and lower limits of latitude and longitude
+        for use with Basemap.
 
-def transaction_arrows(cur, arch, positions, transaction_dict):
-    """ Returns a dictionary of transactions between agents for plotting
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-    arch: str
-            Agent archetype
-    positions: dict
-            dictionary of Cycamore agent positions with "
-            key = agentid, and
-            value = list of prototype, spec, latitude, longitude"
-    transaction_dict: dict
-            dictionary of all transactions with "
-            key = (senderid, receiverid, commodity), and
-            value = total transaction quantity over lifetime"
+        Returns
+        -------
+        bounds: list
+                list with
+                lower left latitude,
+                lower left longitude,
+                upper right latitude,
+                upper right longitude in decimal degrees
+        """
+        latitudes = [info[2] for info in list(self.positions.values())]
+        longitudes = [info[3] for info in list(self.positions.values())]
+        llcrnrlat = min(latitudes)
+        llcrnrlon = min(longitudes)
+        urcrnrlat = max(latitudes)
+        urcrnrlon = max(longitudes)
+        extra_lon = (urcrnrlon - llcrnrlon) * self.bound_addition
+        extra_lat = (urcrnrlat - llcrnrlat) * 3 * self.bound_addition
+        llcrnrlat -= extra_lat
+        llcrnrlon -= extra_lon
+        urcrnrlat += extra_lat
+        urcrnrlon += extra_lon
+        bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
+        return bounds
 
-    Returns
-    -------
-    arrows: dict
-            dictionary of transactions and average quantity moved during
-            lifetime with "
-            key = tuple of sender coord, receiver coord, and commodity, and
-            value = average quantity moved during lifetime in [MTHM]"
-    """
-    lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    arrows = defaultdict(float)
-    for key in transaction_dict.keys():
-        sender_id = str(key[0])
-        receiver_id = str(key[1])
-        commodity = key[2]
-        quantity = transaction_dict[key] * KG_TO_TONS
-        sender_coord = (positions[sender_id][3],
-                        positions[sender_id][2])
-        receiver_coord = (positions[receiver_id][3],
-                          positions[receiver_id][2])
-        arrows[(sender_coord, receiver_coord, commodity)] += quantity
-    return arrows
+    def reactor_markers(self):
+        """ Returns a dictionary of reactor coordinates and marker size using its
+        power capacity
 
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
-def plot_basemap(cur, cycamore_positions_dict):
-    """ Returns a matplotlib basemap for the simulation region
+        Returns
+        -------
+        marker_size: dict
+                dictionary with "
+                key = (longitude, latitude) in float, and
+                value = marker size in float for matplotlib scatter"
+        """
+        query = ("SELECT DISTINCT longitude, latitude, value"
+                 " FROM TIMESERIESPOWER INNER JOIN AGENTPOSITION"
+                 " ON TIMESERIESPOWER.agentid = AGENTPOSITION.agentid"
+                 " EXCEPT "
+                 "SELECT DISTINCT longitude, latitude, value"
+                 " FROM TIMESERIESPOWER INNER JOIN AGENTPOSITION"
+                 " ON TIMESERIESPOWER.agentid = AGENTPOSITION.agentid"
+                 " WHERE value = 0")
+        results = self.cur.execute(query)
+        marker_size = defaultdict(float)
+        for row in results:
+            marker_size[(row['longitude'],
+                         row['latitude'])] += (self.capacity_to_markersize *
+                                               row['value'])
+        return marker_size
 
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
+    def list_transactions(self):
+        """ Returns a dictionary of transactions between agents
 
-    Returns
-    -------
-    sim_map: matplotlib basemap
-            matplotlib basemap
-    """
-    fig = plt.figure(figsize=FIGSIZE)
-    ax_main = fig.add_axes(MAIN_PLOT_AXIS_POSITION)
-    bounds = get_bounds(cycamore_positions_dict)
-    basemap = Basemap(ax=ax_main,
-                      projection='cyl',
-                      llcrnrlat=bounds[0],
-                      llcrnrlon=bounds[1],
-                      urcrnrlat=bounds[2],
-                      urcrnrlon=bounds[3],
-                      fix_aspect=False,
-                      anchor='NW')
-    basemap.drawcoastlines(zorder=-15)
-    basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
-    basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
-    basemap.drawcountries(zorder=0)
-    basemap.drawstates(zorder=0)
-    return fig, ax_main, basemap
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
+        Returns
+        -------
+        transaction_dict: dict
+                dictionary with "
+                key = (senderid, receiverid, commodity), and
+                value = total transaction quantity over lifetime"
+        """
+        agententry = {}
+        transaction_dict = defaultdict(float)
+        query = self.cur.execute("SELECT endtime FROM FINISH")
+        endtime = [row['endtime'] for row in query][0]
+        query = self.cur.execute(
+            "SELECT agentid, entertime, lifetime FROM AGENTENTRY")
+        for row in query:
+            lifetime = row['lifetime']
+            if lifetime == -1:
+                lifetime = endtime
+            agententry[row['agentid']] = lifetime
+        query = ("SELECT senderid, receiverid, commodity, quantity"
+                 " FROM TRANSACTIONS INNER JOIN RESOURCES ON"
+                 " TRANSACTIONS.resourceid = RESOURCES.resourceid")
+        results = self.cur.execute(query)
+        for row in results:
+            lifetime = agententry[row['receiverid']]
+            transaction_dict[(row['senderid'],
+                              row['receiverid'],
+                              row['commodity'])] += row['quantity'] / lifetime
+        return transaction_dict
 
-def resize_legend(legend):
-    """ Resizes scatter plot legends to the same size
+    def get_lons_lats_labels(self, arch, merge=False):
+        """ Returns longitude, latititude, and agentid as separate lists. Merges
+        agentids with same lon, lat into comma sepparated string if merge=True
 
-    Parameters
-    ----------
-    legend: matplotlib legend
-            matplotlib legend
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+        arch: str
+                Cycamore archetype
+        merge: bool
+                if True,  agentids with same lon, lat pair are merged
+                if False, agentids with same lon, lat pair are not merged
 
-    Returns
-    -------
-    """
-    for handle in legend.legendHandles:
-        handle._sizes = [30]
+        Returns
+        -------
+        lons: list
+                list of longitudes
+        lats: list
+                list of latitudes
+        labels: list
+                list of agentids
+        """
+        pos_dict = self.get_archetype_position(arch)
+        lons = [agent[3] for agent in pos_dict.values()]
+        lats = [agent[2] for agent in pos_dict.values()]
+        labels = [agent for agent in pos_dict.keys()]
+        if merge:
+            lons, lats, labels = self.merge_overlapping_labels(lons,
+                                                               lats,
+                                                               labels)
+        return lons, lats, labels
 
+    def find_overlap(self, list_of_sets):
+        """ Returns a dictionary of duplicate items and their index from a list
+        of sets
 
-def plot_reactors(cur, basemap):
-    """ Scatter plot of reactors with reactor capacity as marker size
+        Parameters
+        ----------
+        list_of_tuples: list
+                list of tuples
 
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-    basemap: matplotlib basemap
-            matplotlib basemap
+        Returns
+        -------
+        dups: dict
+                dictionary with "
+                key = list of sets, and
+                value = index of duplicate set"
+        """
+        tracker = defaultdict(list)
+        for idx, item in enumerate(list_of_sets):
+            tracker[item].append(idx)
+        dups = {key: idx for key, idx in tracker.items() if len(idx) > 1}
+        return dups
 
-    Returns
-    -------
-    """
-    mpl = {}
-    lons, lats, labels = get_lons_lats_labels(cur, 'Reactor', True)
-    marker_dict = reactor_markers(cur)
-    for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-        agents = set(label.split(','))
-        mpl[basemap.scatter(lon, lat,
-                            alpha=0.4,
-                            color='grey',
-                            label='Reactor' if i == 0 else '',
-                            edgecolors='black',
-                            s=marker_dict[(lon, lat)],
-                            zorder=5)] = agents
-        plt.text(lon, lat, label,
-                 fontsize=LABEL_PROPERTY['fontsize'],
-                 verticalalignment=LABEL_PROPERTY['verticalalignment'],
-                 horizontalalignment=LABEL_PROPERTY['horizontalalignment'])
-    return mpl
+    def merge_overlapping_labels(self, lons, lats, labels):
+        """ Returns truncated lons, lats, labels lists with duplicates removed and
+        labels with same coordinates merged.
 
+        Parameters
+        ----------
+        lons: list
+                list of agent longitudes
+        lats: list
+                list of agent latitudes
+        labels: list
+                list of agent prototype names
 
-def plot_nonreactors(cur, arch, i, colors, basemap):
-    """ Scatter plot of nonreactors
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-    arch: str
-            cycamore archetype
-    basemap: matplotlib basemap
-            matplotlib basemap
-
-    Returns
-    -------
-    """
-    mpl = {}
-    lons, lats, labels = get_lons_lats_labels(cur, arch, True)
-    for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-        agents = set(label.split(','))
-        mpl[basemap.scatter(lon, lat,
-                            alpha=0.4, s=200,
-                            label=str(arch) if j == 0 else '',
-                            color=colors[i],
-                            zorder=5)] = agents
-        plt.text(lon, lat, label,
-                 fontsize=LABEL_PROPERTY['fontsize'],
-                 verticalalignment=LABEL_PROPERTY['verticalalignment'],
-                 horizontalalignment=LABEL_PROPERTY['horizontalalignment'])
-    return mpl
-
-
-def plot_transactions(cur, fig, archs, positions, transactions):
-    """ Line plot of transactions during simulation with logarithmic linewidth
-
-    Parameters
-    ----------
-    cur: sqlite cursor
-            sqlite cursor
-    fig: matplotlib figure
-            matplotlib figure
-    archs: list
-            list of cycamore archetypes
-
-    Returns
-    -------
-    """
-    for arch in archs:
-        arrows = transaction_arrows(cur, arch, positions, transactions)
-        for key, value in arrows.items():
-            point_a = [key[0][0], key[1][0]]
-            point_b = [key[0][1], key[1][1]]
-            linewidth = np.log(value * QUANTITY_TO_LINEWIDTH)
-            fig.plot(point_a, point_b, linewidth=linewidth,
-                     zorder=0, alpha=0.1)
-
-
-def update_annotion(event, annot, cur, agent_set):
-    annot.xy = (event.xdata, event.ydata)
-    info = agent_summary(cur, agent_set)
-    annot.set_text(info)
-
-
-def click(event, fig, ax, annot, cur, collections):
-    vis = annot.get_visible()
-    if event.inaxes == ax:
-        for mpl_object, agent_set in collections.items():
-            cont, ind = mpl_object.contains(event)
-            if cont:
-                update_annotion(event, annot, cur, agent_set)
-                print(agent_set)
-                annot.set_visible(True)
-                ax.draw_artist(annot)
-                fig.canvas.update()
+        Returns
+        -------
+        lons: list
+                list of agent longitudes without duplicates
+        lats: list
+                list of agent latitudes without duplicates
+        new_label: list
+                list of agentid (prototype, spec) where agentids of the same
+                coordinates are merged
+        """
+        dups = self.find_overlap([(lon, lat) for lon, lat in zip(lons, lats)])
+        new_label = []
+        dup_idxs = sum(dups.values(), [])
+        keep_one_idx_list = [idx[0] for idx in dups.values()]
+        for idx in keep_one_idx_list:
+            dup_idxs.remove(idx)
+        for idx in sorted(dup_idxs, reverse=True):
+            del lons[idx]
+            del lats[idx]
+        for i, item in enumerate(labels):
+            if i in keep_one_idx_list:
+                new_label.append(', '.join(map(str, [labels[k]
+                                                     for j in dups.values()
+                                                     if j[0] == i
+                                                     for k in j])))
+            elif i in dup_idxs:
+                continue
             else:
-                if vis:
-                    annot.set_visible(False)
-                    fig.canvas.draw_idle()
+                new_label.append(item)
+        return lons, lats, new_label
 
+    def transaction_arrows(self, arch):
+        """ Returns a dictionary of transactions between agents for plotting
 
-def interactive_annotate(fig, ax, mpl_collections, cur):
-    annot = ax.annotate('', xy=ANNOT_PROPERTY['xy'],
-                        xytext=ANNOT_PROPERTY['xytext'],
-                        textcoords=ANNOT_PROPERTY['textcoords'],
-                        bbox=ANNOT_PROPERTY['bbox'])
-    annot.set_visible(False)
-    fig.canvas.mpl_connect('button_press_event',
-                           lambda event: click(event, fig, ax,
-                                               annot, cur, mpl_collections))
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+        arch: str
+                Agent archetype
+        positions: dict
+                dictionary of Cycamore agent positions with "
+                key = agentid, and
+                value = list of prototype, spec, latitude, longitude"
+        transaction_dict: dict
+                dictionary of all transactions with "
+                key = (senderid, receiverid, commodity), and
+                value = total transaction quantity over lifetime"
 
+        Returns
+        -------
+        arrows: dict
+                dictionary of transactions and average quantity moved during
+                lifetime with "
+                key = tuple of sender coord, receiver coord, and commodity, and
+                value = average quantity moved during lifetime in [MTHM]"
+        """
+        lons, lats, labels = self.get_lons_lats_labels(arch, True)
+        arrows = defaultdict(float)
+        for key in self.transactions.keys():
+            sender_id = str(key[0])
+            receiver_id = str(key[1])
+            commodity = key[2]
+            quantity = self.transactions[key] * self.kg_to_tons
+            sender_coord = (self.positions[sender_id][3],
+                            self.positions[sender_id][2])
+            receiver_coord = (self.positions[receiver_id][3],
+                              self.positions[receiver_id][2])
+            arrows[(sender_coord, receiver_coord, commodity)] += quantity
+        return arrows
 
-def plot_archetypes(cur, ax, archs):
-    mpl_collections = {}
-    for i, arch in enumerate(archs):
-        if arch == 'Reactor':
-            reactors = plot_reactors(cur, ax)
-            mpl_collections = {**mpl_collections, **reactors}
-        else:
-            colors = cm.rainbow(np.linspace(0, 1, len(archs)))
-            non_reactors = plot_nonreactors(cur, arch, i, colors, ax)
-            mpl_collections = {**mpl_collections, **non_reactors}
-    return mpl_collections
+    def plot_basemap(self):
+        """ Returns a matplotlib basemap for the simulation region
 
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
 
-def agent_summary(cur, agent_set):
-    # Lifetime, Power Generated, Transaction Items,
-    # Avg Transaction, Name, Coord
-    # query = cur.execute('FROM')
-    return 'Hi'
+        Returns
+        -------
+        sim_map: matplotlib basemap
+                matplotlib basemap
+        """
+        fig = plt.figure(figsize=self.figsize)
+        ax_main = fig.add_axes(self.main_plot_axis_position)
+        basemap = Basemap(ax=ax_main,
+                          projection='cyl',
+                          llcrnrlat=self.bounds[0],
+                          llcrnrlon=self.bounds[1],
+                          urcrnrlat=self.bounds[2],
+                          urcrnrlon=self.bounds[3],
+                          fix_aspect=False,
+                          anchor='NW')
+        basemap.drawcoastlines(zorder=-15)
+        basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
+        basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
+        basemap.drawcountries(zorder=0)
+        basemap.drawstates(zorder=0)
+        return fig, ax_main, basemap
+
+    def resize_legend(self):
+        """ Resizes scatter plot legends to the same size
+
+        Parameters
+        ----------
+        legend: matplotlib legend
+                matplotlib legend
+
+        Returns
+        -------
+        """
+        legend = self.ax.legend(loc='best')
+        for handle in legend.legendHandles:
+            handle._sizes = [30]
+
+    def plot_reactors(self):
+        """ Scatter plot of reactors with reactor capacity as marker size
+
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+        basemap: matplotlib basemap
+                matplotlib basemap
+
+        Returns
+        -------
+        """
+        mpl = {}
+        lons, lats, labels = self.get_lons_lats_labels('Reactor', True)
+        for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
+            agents = set(label.split(','))
+            mpl[self.basemap.scatter(lon, lat,
+                                     alpha=0.4,
+                                     color='grey',
+                                     label='Reactor' if i == 0 else '',
+                                     edgecolors='black',
+                                     s=self.reactor_markers[(lon, lat)],
+                                     zorder=5)] = agents
+            plt.text(lon, lat, label,
+                     fontsize=self.label_property['fontsize'],
+                     verticalalignment=self.label_property['vert_align'],
+                     horizontalalignment=self.label_property['horz_align'])
+        return mpl
+
+    def plot_nonreactors(self, arch, i):
+        """ Scatter plot of nonreactors
+
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+        arch: str
+                cycamore archetype
+        basemap: matplotlib basemap
+                matplotlib basemap
+
+        Returns
+        -------
+        """
+        mpl = {}
+        lons, lats, labels = self.get_lons_lats_labels(arch, True)
+        for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
+            agents = set(label.split(','))
+            mpl[self.basemap.scatter(lon, lat,
+                                     alpha=0.4, s=200,
+                                     label=str(arch) if j == 0 else '',
+                                     color=self.colors[i],
+                                     zorder=5)] = agents
+            plt.text(lon, lat, label,
+                     fontsize=self.label_property['fontsize'],
+                     verticalalignment=self.label_property['vert_align'],
+                     horizontalalignment=self.label_property['horz_align'])
+        return mpl
+
+    def plot_transactions(self):
+        """ Line plot of transactions during simulation with logarithmic linewidth
+
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+        fig: matplotlib figure
+                matplotlib figure
+        archs: list
+                list of cycamore archetypes
+
+        Returns
+        -------
+        """
+        for arch in self.archs:
+            arrows = self.transaction_arrows(arch)
+            for key, value in arrows.items():
+                point_a = [key[0][0], key[1][0]]
+                point_b = [key[0][1], key[1][1]]
+                linewidth = np.log(value * self.quantity_to_linewidth)
+                self.ax.plot(point_a, point_b, linewidth=linewidth,
+                             zorder=0, alpha=0.1)
+
+    def update_annotion(self, event, annot, agent_set):
+        annot.xy = (event.xdata, event.ydata)
+        info = self.agent_summary(agent_set)
+        annot.set_text(info)
+
+    def click(self, event, annot):
+        vis = annot.get_visible()
+        if event.inaxes == self.ax:
+            for mpl_object, agent_set in self.mpl_collections.items():
+                cont, ind = mpl_object.contains(event)
+                if cont:
+                    self.update_annotion(event, annot, agent_set)
+                    print(agent_set)
+                    annot.set_visible(True)
+                    self.ax.draw_artist(annot)
+                    self.fig.canvas.update()
+                else:
+                    if vis:
+                        annot.set_visible(False)
+                        self.fig.canvas.draw_idle()
+
+    def interactive_annotate(self):
+        annot = self.ax.annotate('', xy=self.annot_property['xy'],
+                                 xytext=self.annot_property['xytext'],
+                                 textcoords=self.annot_property['textcoords'],
+                                 bbox=self.annot_property['bbox'])
+        annot.set_visible(False)
+        self.fig.canvas.mpl_connect('button_press_event',
+                                    lambda event:
+                                    self.click(event, annot))
+
+    def plot_archetypes(self):
+        mpl_collections = {}
+        for i, arch in enumerate(self.archs):
+            if arch == 'Reactor':
+                reactors = self.plot_reactors()
+                mpl_collections = {**mpl_collections, **reactors}
+            else:
+                non_reactors = self.plot_nonreactors(arch, i)
+                mpl_collections = {**mpl_collections, **non_reactors}
+        return mpl_collections
+
+    def agent_summary(self, agent_set):
+        # Lifetime, Power Generated, Transaction Items,
+        # Avg Transaction, Name, Coord
+        # query = cur.execute('FROM')
+        return 'Hi'
 
 
 def main(sqlite_file):
@@ -550,14 +551,9 @@ def main(sqlite_file):
     Returns
     -------
     """
-    cur = get_cursor(sqlite_file)
-    archs = available_archetypes(cur)
-    transactions = list_transactions(cur)
-    positions = get_archetype_position(cur, 'Cycamore')
-    fig, ax, basemap = plot_basemap(cur, positions)
-    mpl_collections = plot_archetypes(cur, ax, archs)
-    plot_transactions(cur, basemap, archs, positions, transactions)
-    resize_legend(ax.legend(loc='best'))
-    interactive_annotate(fig, ax, mpl_collections, cur)
-    fig.savefig('result.png')
+    cycvis = Cycvis(sqlite_file)
+    cycvis.plot_transactions()
+    cycvis.resize_legend()
+    cycvis.interactive_annotate()
+    cycvis.fig.savefig('result.png')
     plt.show()
