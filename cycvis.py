@@ -20,8 +20,8 @@ class Cycvis():
     figsize = (9.8, 5)
     main_plot_axis_position = [0.05, 0.05, 0.6, 0.9]
     annot_property = {'xy': (0, 0),
-                      'xytext': (0.665, 0.92),
-                      'textcoords': 'figure fraction',
+                      'xytext': (1.02, 0.9785),
+                      'textcoords': 'axes fraction',
                       'bbox': dict(boxstyle="round",
                                    alpha=(0.4),
                                    fc="w")}
@@ -517,7 +517,8 @@ class Cycvis():
         annot = self.ax.annotate('', xy=self.annot_property['xy'],
                                  xytext=self.annot_property['xytext'],
                                  textcoords=self.annot_property['textcoords'],
-                                 bbox=self.annot_property['bbox'])
+                                 bbox=self.annot_property['bbox'],
+                                 verticalalignment='top')
         annot.set_visible(False)
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
@@ -538,16 +539,19 @@ class Cycvis():
         # reactor marker for power output
         # transaction for transactions (commodity and avg amount)
         summary = ''
-        for agent in agent_set:
+        for i, agent in enumerate(agent_set):
+            if i != 0:
+                summary += "\n"
             agent = str(agent).strip()
             name = self.positions[agent][0]
             spec = self.positions[agent][1]
-            capacity = '0'
             coordinates = (self.positions[agent][3], self.positions[agent][2])
+            summary += "[" + spec + "]\n"
+            summary += "Name: " + name + "\n"
             if spec == 'Reactor':
                 capacity = str(self.reactor_markers[coordinates] /
                                self.capacity_to_markersize)
-            summary += "Name: " + name + "\nCycamore Archetype: " + spec + "\nCapacity: " + str(capacity) + "\n\n"
+                summary += "Capacity: " + capacity + " [MWe]\n"
         return summary
 
 
