@@ -425,7 +425,7 @@ class Cycvis():
         mpl = {}
         lons, lats, labels = self.get_lons_lats_labels('Reactor', True)
         for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-            agents = set(label.split(','))
+            agents = set(label.split(', '))
             mpl[self.basemap.scatter(lon, lat,
                                      alpha=0.4,
                                      color='grey',
@@ -457,7 +457,7 @@ class Cycvis():
         mpl = {}
         lons, lats, labels = self.get_lons_lats_labels(arch, True)
         for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
-            agents = set(label.split(','))
+            agents = set(label.split(', '))
             mpl[self.basemap.scatter(lon, lat,
                                      alpha=0.4, s=200,
                                      label=str(arch) if j == 0 else '',
@@ -538,11 +538,10 @@ class Cycvis():
     def agent_summary(self, agent_set):
         # reactor marker for power output
         # transaction for transactions (commodity and avg amount)
-        summary = ''
+        summary = ', '.join(agent_set)
         for i, agent in enumerate(agent_set):
-            if i != 0:
-                summary += "\n"
-            agent = str(agent).strip()
+            summary += "\n"
+            agent = str(agent)
             name = self.positions[agent][0]
             spec = self.positions[agent][1]
             coordinates = (self.positions[agent][3], self.positions[agent][2])
