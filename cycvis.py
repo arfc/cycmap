@@ -505,10 +505,9 @@ class Cycvis():
                 cont, ind = mpl_object.contains(event)
                 if cont:
                     self.update_annotion(event, annot, agent_set)
-                    print(agent_set)
                     annot.set_visible(True)
-                    self.ax.draw_artist(annot)
-                    self.fig.canvas.update()
+                    self.fig.canvas.draw_idle()
+                    break
                 else:
                     if vis:
                         annot.set_visible(False)
@@ -536,10 +535,20 @@ class Cycvis():
         return mpl_collections
 
     def agent_summary(self, agent_set):
-        # Lifetime, Power Generated, Transaction Items,
-        # Avg Transaction, Name, Coord
-        # query = cur.execute('FROM')
-        return 'Hi'
+        # reactor marker for power output
+        # transaction for transactions (commodity and avg amount)
+        summary = ''
+        for agent in agent_set:
+            agent = str(agent).strip()
+            name = self.positions[agent][0]
+            spec = self.positions[agent][1]
+            capacity = '0'
+            coordinates = (self.positions[agent][3], self.positions[agent][2])
+            if spec == 'Reactor':
+                capacity = str(self.reactor_markers[coordinates] /
+                               self.capacity_to_markersize)
+            summary += "Name: " + name + "\nCycamore Archetype: " + spec + "\nCapacity: " + str(capacity) + "\n\n"
+        return summary
 
 
 def main(sqlite_file):
@@ -558,7 +567,6 @@ def main(sqlite_file):
     cycvis.plot_transactions()
     cycvis.resize_legend()
     cycvis.interactive_annotate()
-    cycvis.fig.savefig('result.png')
     plt.show()
 
 
