@@ -95,7 +95,7 @@ class Cycvis():
 
         Returns
         -------
-        positions: dict
+        agent_info: dict
                 dictionary with "
                 key = agentid, and
                 value = list of prototype, spec, latitude, longitude"
@@ -112,15 +112,15 @@ class Cycvis():
                  " AND agentposition.spec NOT LIKE '%GrowthRegion%'"
                  " COLLATE NOCASE")
         results = self.cur.execute(query)
-        positions = {str(agent['agentid']): [agent['prototype'],
-                                             agent['spec'][10:],
-                                             agent['latitude'],
-                                             agent['longitude'],
-                                             agent['entertime'],
-                                             agent['lifetime']
-                                             ]
-                     for agent in results}
-        return positions
+        agent_info = {str(agent['agentid']): [agent['prototype'],
+                                              agent['spec'][10:],
+                                              agent['latitude'],
+                                              agent['longitude'],
+                                              agent['entertime'],
+                                              agent['lifetime']
+                                              ]
+                      for agent in results}
+        return agent_info
 
     def get_archetype_info(self, archetype):
         archetype_info = {}
