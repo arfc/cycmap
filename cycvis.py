@@ -182,11 +182,7 @@ class Cycvis():
         query = ("SELECT DISTINCT longitude, latitude, value"
                  " FROM TIMESERIESPOWER INNER JOIN AGENTPOSITION"
                  " ON TIMESERIESPOWER.agentid = AGENTPOSITION.agentid"
-                 " EXCEPT "
-                 "SELECT DISTINCT longitude, latitude, value"
-                 " FROM TIMESERIESPOWER INNER JOIN AGENTPOSITION"
-                 " ON TIMESERIESPOWER.agentid = AGENTPOSITION.agentid"
-                 " WHERE value = 0")
+                 " WHERE value != 0")
         results = self.cur.execute(query)
         marker_size = defaultdict(float)
         for row in results:
