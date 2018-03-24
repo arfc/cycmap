@@ -39,8 +39,7 @@ class Cycvis():
         self.reactor_markers = self.reactor_markers()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
         self.mpl_collections = self.plot_archetypes()
-        self.sim_start = self.cur.execute('SELECT initialyear '
-                                          'FROM info').fetchone()
+        self.init_yr, self.timestep = self.sim_info()
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -216,8 +215,8 @@ class Cycvis():
         init_year = results['initialyear']
         init_month = results['initialmonth']
         duration = results['duration']
-        timestep = np.linspace(0, duration - 1, num=duration)
-        return init_year, init_month, duration, timestep
+        timestep = np.linspace(init_month, init_month + duration - 1, duration)
+        return init_year, timestep
 
     def list_transactions(self):
         """ Returns a dictionary of transactions between agents
