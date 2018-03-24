@@ -33,7 +33,7 @@ class Cycvis():
         self.cur = self.get_cursor(file_name)
         self.archs = self.available_archetypes()
         self.transactions = self.list_transactions()
-        self.positions = self.get_archetype_position('Cycamore')
+        self.agent_info = self.get_agent_info()
         self.bounds = self.get_bounds()
         self.fig, self.ax, self.basemap = self.plot_basemap()
         self.reactor_markers = self.reactor_markers()
@@ -84,7 +84,7 @@ class Cycvis():
         archetypes = {agent['spec'][10:] for agent in results} - blacklist
         return list(archetypes)
 
-    def get_archetype_position(self, archetype):
+    def get_agent_info(self):
         """ Returns a dictionary of agents of an archetype with their prototype,
         specification, and coordinates
 
@@ -100,30 +100,35 @@ class Cycvis():
                 key = agentid, and
                 value = list of prototype, spec, latitude, longitude"
         """
-        positions = {}
-        if archetype in ['Cycamore', 'CYCAMORE', 'cycamore']:
-            for arch in self.archs:
-                query = ("SELECT agentid, spec, prototype, latitude, longitude"
-                         " FROM agentposition WHERE spec LIKE '%" + arch + "%'"
-                         " COLLATE NOCASE")
-                results = self.cur.execute(query)
-                position = {str(agent['agentid']): [agent['prototype'],
-                                                    agent['spec'][10:],
-                                                    agent['latitude'],
-                                                    agent['longitude']]
-                            for agent in results}
-                positions = {**positions, **position}
-        else:
-            query = ("SELECT agentid, spec, prototype, latitude, longitude"
-                     " FROM agentposition WHERE spec LIKE"
-                     " '%" + archetype + "%' COLLATE NOCASE")
-            results = self.cur.execute(query)
-            positions = {str(agent['agentid']): [agent['prototype'],
-                                                 agent['spec'][10:],
-                                                 agent['latitude'],
-                                                 agent['longitude']]
-                         for agent in results}
+        query = ("SELECT agentposition.agentid, agentposition.spec,"
+                 " agentposition.prototype, latitude, longitude,"
+                 " entertime, lifetime"
+                 " FROM agentposition"
+                 " INNER JOIN agententry"
+                 " ON agentposition.agentid = agententry.agentid"
+                 " WHERE agentposition.spec LIKE '%Cycamore%'"
+                 " AND agentposition.spec NOT LIKE '%ManagerInst%'"
+                 " AND agentposition.spec NOT LIKE '%DeployInst%'"
+                 " AND agentposition.spec NOT LIKE '%GrowthRegion%'"
+                 " COLLATE NOCASE")
+        results = self.cur.execute(query)
+        positions = {str(agent['agentid']): [agent['prototype'],
+                                             agent['spec'][10:],
+                                             agent['latitude'],
+                                             agent['longitude'],
+                                             agent['entertime'],
+                                             agent['lifetime']
+                                             ]
+                     for agent in results}
         return positions
+
+    def get_archetype_info(self, archetype):
+        archetype_info = {}
+        for k, v in self.agent_info.items():
+            spec = v[1]
+            if spec == archetype:
+                archetype_info[k] = v
+        return archetype_info
 
     def get_bounds(self):
         """ Returns a list with upper and lower limits of latitude and longitude
@@ -143,8 +148,8 @@ class Cycvis():
                 upper right latitude,
                 upper right longitude in decimal degrees
         """
-        latitudes = [info[2] for info in list(self.positions.values())]
-        longitudes = [info[3] for info in list(self.positions.values())]
+        latitudes = [info[2] for info in list(self.agent_info.values())]
+        longitudes = [info[3] for info in list(self.agent_info.values())]
         llcrnrlat = min(latitudes)
         llcrnrlon = min(longitudes)
         urcrnrlat = max(latitudes)
@@ -278,10 +283,10 @@ class Cycvis():
         labels: list
                 list of agentids
         """
-        pos_dict = self.get_archetype_position(arch)
-        lons = [agent[3] for agent in pos_dict.values()]
-        lats = [agent[2] for agent in pos_dict.values()]
-        labels = [agent for agent in pos_dict.keys()]
+        arch_info = self.get_archetype_info(arch)
+        lons = [agent[3] for agent in arch_info.values()]
+        lats = [agent[2] for agent in arch_info.values()]
+        labels = [agent for agent in arch_info.keys()]
         if merge:
             lons, lats, labels = self.merge_overlapping_labels(lons,
                                                                lats,
@@ -387,10 +392,10 @@ class Cycvis():
             receiver_id = str(key[1])
             commodity = key[2]
             quantity = self.transactions[key] * self.kg_to_tons
-            sender_coord = (self.positions[sender_id][3],
-                            self.positions[sender_id][2])
-            receiver_coord = (self.positions[receiver_id][3],
-                              self.positions[receiver_id][2])
+            sender_coord = (self.agent_info[sender_id][3],
+                            self.agent_info[sender_id][2])
+            receiver_coord = (self.agent_info[receiver_id][3],
+                              self.agent_info[receiver_id][2])
             arrows[(sender_coord, receiver_coord, commodity)] += quantity
         return arrows
 
@@ -573,9 +578,10 @@ class Cycvis():
         for i, agent in enumerate(agent_set):
             summary += "\n"
             agent = str(agent)
-            name = self.positions[agent][0]
-            spec = self.positions[agent][1]
-            coordinates = (self.positions[agent][3], self.positions[agent][2])
+            name = self.agent_info[agent][0]
+            spec = self.agent_info[agent][1]
+            coordinates = (self.agent_info[agent]
+                           [3], self.agent_info[agent][2])
             summary += "[" + spec + "]\n"
             summary += "Name: " + name + "\n"
             if spec == 'Reactor':
