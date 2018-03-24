@@ -36,7 +36,7 @@ class Cycvis():
         self.init_yr, self.timestep = self.sim_info()
         self.bounds = self.get_bounds()
         self.fig, self.ax, self.basemap = self.plot_basemap()
-        self.transactions = self.list_transactions()
+        self.transactions = self.transactions()
         self.reactor_power = self.reactor_power()
         self.reactor_markers = self.reactor_markers()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
@@ -227,7 +227,7 @@ class Cycvis():
             reactor_markers[v[1]] += (self.capacity_to_markersize * v[0])
         return reactor_markers
 
-    def list_transactions(self):
+    def transactions(self):
         """ Returns a dictionary of transactions between agents
 
         Parameters
@@ -242,26 +242,19 @@ class Cycvis():
                 key = (senderid, receiverid, commodity), and
                 value = total transaction quantity over lifetime"
         """
-        agententry = {}
-        transaction_dict = defaultdict(float)
-        query = self.cur.execute("SELECT endtime FROM FINISH")
-        endtime = [row['endtime'] for row in query][0]
-        query = self.cur.execute(
-            "SELECT agentid, entertime, lifetime FROM AGENTENTRY")
-        for row in query:
-            lifetime = row['lifetime']
-            if lifetime == -1:
-                lifetime = endtime
-            agententry[row['agentid']] = lifetime
         query = ("SELECT senderid, receiverid, commodity, quantity"
                  " FROM TRANSACTIONS INNER JOIN RESOURCES ON"
-                 " TRANSACTIONS.resourceid = RESOURCES.resourceid")
+                 " TRANSACTIONS.resourceid = RESOURCES.resourceid"
+                 " SORT BY time")
         results = self.cur.execute(query)
+        transaction_dict = {}
         for row in results:
-            lifetime = agententry[row['receiverid']]
+            lifetime = self.agent_info[-1]
+            if lifetime == -1:
+                lifetime = self.timestep[-1] - self.agent_info[-2]
             transaction_dict[(row['senderid'],
                               row['receiverid'],
-                              row['commodity'])] += row['quantity'] / lifetime
+                              row['commodity'])].append(row['quantity'])
         return transaction_dict
 
     def get_lons_lats_labels(self, arch, merge=False):
