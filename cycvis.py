@@ -538,6 +538,7 @@ class Cycvis():
     def agent_summary(self, agent_set):
         # reactor marker for power output
         # transaction for transactions (commodity and avg amount)
+        agent_set = sorted(list(agent_set))
         summary = ', '.join(agent_set)
         for i, agent in enumerate(agent_set):
             summary += "\n"
@@ -550,7 +551,7 @@ class Cycvis():
             if spec == 'Reactor':
                 capacity = str(self.reactor_markers[coordinates] /
                                self.capacity_to_markersize)
-                summary += "Capacity: " + capacity + " [MWe]\n"
+                summary += "Plant Capacity: " + capacity + " [MWe]\n"
         return summary
 
 
