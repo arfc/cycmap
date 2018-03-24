@@ -31,16 +31,16 @@ class Cycvis():
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
-        self.archs = self.available_archetypes()
-        self.transactions = self.list_transactions()
         self.agent_info = self.get_agent_info()
+        self.archs = self.available_archetypes()
+        self.init_yr, self.timestep = self.sim_info()
         self.bounds = self.get_bounds()
         self.fig, self.ax, self.basemap = self.plot_basemap()
+        self.transactions = self.list_transactions()
         self.reactor_power = self.reactor_power()
         self.reactor_markers = self.reactor_markers()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
         self.mpl_collections = self.plot_archetypes()
-        self.init_yr, self.timestep = self.sim_info()
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -59,30 +59,6 @@ class Cycvis():
         con.row_factory = sql.Row
         cur = con.cursor()
         return cur
-
-    def available_archetypes(self):
-        """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
-        DeployInst, and GrowthRegion.
-
-        Parameters
-        ----------
-        cur: sqlite cursor
-                sqlite cursor
-
-        Returns
-        -------
-        archetypes: list
-                list of archetypes available for plotting
-        """
-        blacklist = {'ManagerInst',
-                     'DeployInst',
-                     'GrowthRegion'}
-        query = ("SELECT spec FROM agentposition"
-                 " WHERE spec LIKE '%cycamore%'"
-                 " COLLATE NOCASE")
-        results = self.cur.execute(query)
-        archetypes = {agent['spec'][10:] for agent in results} - blacklist
-        return list(archetypes)
 
     def get_agent_info(self):
         """ Returns a dictionary of agents of an archetype with their prototype,
@@ -121,6 +97,58 @@ class Cycvis():
                                               ]
                       for agent in results}
         return agent_info
+
+    def available_archetypes(self):
+        """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
+        DeployInst, and GrowthRegion.
+
+        Parameters
+        ----------
+        cur: sqlite cursor
+                sqlite cursor
+
+        Returns
+        -------
+        archetypes: list
+                list of archetypes available for plotting
+        """
+        blacklist = {'ManagerInst',
+                     'DeployInst',
+                     'GrowthRegion'}
+        query = ("SELECT spec FROM agentposition"
+                 " WHERE spec LIKE '%cycamore%'"
+                 " COLLATE NOCASE")
+        results = self.cur.execute(query)
+        archetypes = {agent['spec'][10:] for agent in results} - blacklist
+        return list(archetypes)
+
+    def sim_info(self):
+        """ Returns simulation start year, month, duration and
+        timesteps (in numpy linspace).
+
+        Parameters
+        ----------
+        cur: sqlite cursor
+            sqlite cursor
+
+        Returns
+        -------
+        init_year: int
+            start year of simulation
+        init_month: int
+            start month of simulation
+        duration: int
+            duration of simulation
+        timestep: list
+            linspace up to duration
+        """
+        query = 'SELECT initialyear, initialmonth, duration FROM info'
+        results = self.cur.execute(query).fetchone()
+        init_year = results['initialyear']
+        init_month = results['initialmonth']
+        duration = results['duration']
+        timestep = np.linspace(init_month, init_month + duration - 1, duration)
+        return init_year, timestep
 
     def get_archetype_info(self, archetype):
         archetype_info = {}
@@ -198,34 +226,6 @@ class Cycvis():
         for k, v in self.reactor_power.items():
             reactor_markers[v[1]] += (self.capacity_to_markersize * v[0])
         return reactor_markers
-
-    def sim_info(self):
-        """ Returns simulation start year, month, duration and
-        timesteps (in numpy linspace).
-
-        Parameters
-        ----------
-        cur: sqlite cursor
-            sqlite cursor
-
-        Returns
-        -------
-        init_year: int
-            start year of simulation
-        init_month: int
-            start month of simulation
-        duration: int
-            duration of simulation
-        timestep: list
-            linspace up to duration
-        """
-        query = 'SELECT initialyear, initialmonth, duration FROM info'
-        results = self.cur.execute(query).fetchone()
-        init_year = results['initialyear']
-        init_month = results['initialmonth']
-        duration = results['duration']
-        timestep = np.linspace(init_month, init_month + duration - 1, duration)
-        return init_year, timestep
 
     def list_transactions(self):
         """ Returns a dictionary of transactions between agents
