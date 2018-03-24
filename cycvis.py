@@ -36,6 +36,7 @@ class Cycvis():
         self.agent_info = self.get_agent_info()
         self.bounds = self.get_bounds()
         self.fig, self.ax, self.basemap = self.plot_basemap()
+        self.reactor_power = self.reactor_power()
         self.reactor_markers = self.reactor_markers()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
         self.mpl_collections = self.plot_archetypes()
@@ -162,6 +163,21 @@ class Cycvis():
         bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
         return bounds
 
+    def reactor_power(self):
+        query = ("SELECT DISTINCT timeseriespower.agentid, value,"
+                 " longitude, latitude"
+                 " FROM timeseriespower"
+                 " INNER JOIN agentposition"
+                 " ON timeseriespower.agentid = agentposition.agentid"
+                 " WHERE value > 0")
+        results = self.cur.execute(query)
+        reactor_power = {}
+        for row in results:
+            reactor_power[row['agentid']] = [row['value'],
+                                             (row['longitude'],
+                                              row['latitude'])]
+        return reactor_power
+
     def reactor_markers(self):
         """ Returns a dictionary of reactor coordinates and marker size using its
         power capacity
@@ -173,22 +189,15 @@ class Cycvis():
 
         Returns
         -------
-        marker_size: dict
+        reactor_markers: dict
                 dictionary with "
                 key = (longitude, latitude) in float, and
                 value = marker size in float for matplotlib scatter"
         """
-        query = ("SELECT DISTINCT longitude, latitude, value"
-                 " FROM TIMESERIESPOWER INNER JOIN AGENTPOSITION"
-                 " ON TIMESERIESPOWER.agentid = AGENTPOSITION.agentid"
-                 " WHERE value != 0")
-        results = self.cur.execute(query)
-        marker_size = defaultdict(float)
-        for row in results:
-            marker_size[(row['longitude'],
-                         row['latitude'])] += (self.capacity_to_markersize *
-                                               row['value'])
-        return marker_size
+        reactor_markers = defaultdict(float)
+        for k, v in self.reactor_power.items():
+            reactor_markers[v[1]] += (self.capacity_to_markersize * v[0])
+        return reactor_markers
 
     def sim_info(self):
         """ Returns simulation start year, month, duration and
@@ -575,14 +584,11 @@ class Cycvis():
             agent = str(agent)
             name = self.agent_info[agent][0]
             spec = self.agent_info[agent][1]
-            coordinates = (self.agent_info[agent]
-                           [3], self.agent_info[agent][2])
             summary += "[" + spec + "]\n"
-            summary += "Name: " + name + "\n"
+            summary += name + "\n"
             if spec == 'Reactor':
-                capacity = str(self.reactor_markers[coordinates] /
-                               self.capacity_to_markersize)
-                summary += "Plant Capacity: " + capacity + " [MWe]\n"
+                capacity = str(self.reactor_power[int(agent)][0])
+                summary += capacity + " [MWe]\n"
         return summary
 
 
