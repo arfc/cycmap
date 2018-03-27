@@ -250,12 +250,14 @@ class Cycvis():
         results = self.cur.execute(query)
         transaction_dict = {}
         for row in results:
-            lifetime = self.agent_info[-1]
+            lifetime = self.agent_info[str(row['senderid'])][-1]
             if lifetime == -1:
-                lifetime = self.timestep[-1] - self.agent_info[-2]
+                lifetime = (self.timestep[-1] -
+                            self.agent_info[str(row['senderid'])][-2])
             transaction_dict[(row['senderid'],
                               row['receiverid'],
-                              row['commodity'])].append(row['quantity'])
+                              row['commodity'])].append((row['time'],
+                                                         row['quantity']))
         return transaction_dict
 
     def get_lons_lats_labels(self, arch, merge=False):
