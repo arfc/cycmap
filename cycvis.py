@@ -243,9 +243,10 @@ class Cycvis():
                 value = total transaction quantity over lifetime"
         """
         query = ("SELECT senderid, receiverid, commodity, quantity"
-                 " FROM TRANSACTIONS INNER JOIN RESOURCES ON"
-                 " TRANSACTIONS.resourceid = RESOURCES.resourceid"
-                 " SORT BY time")
+                 " FROM TRANSACTIONS"
+                 " INNER JOIN RESOURCES"
+                 " ON TRANSACTIONS.resourceid = RESOURCES.resourceid"
+                 " ORDER BY time")
         results = self.cur.execute(query)
         transaction_dict = {}
         for row in results:
