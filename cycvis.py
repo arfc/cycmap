@@ -532,6 +532,8 @@ class Cycvis():
     def update_annotion(self, event, annot, agent_set):
         annot.xy = (event.xdata, event.ydata)
         info = self.agent_summary(agent_set)
+        self.update_plot_space(annot)
+        # self.plot_agent_info(agent_set)
         annot.set_text(info)
 
     def click(self, event, annot):
@@ -613,6 +615,18 @@ class Cycvis():
             value += sum(array[array[:, 0] == i][:, 1])
             value_timeseries.append(value)
         return value_timeseries
+
+    def update_plot_space(self, annot):
+        renderer = self.fig.get_renderer()
+        bbox = annot.get_window_extent(renderer=renderer)
+        print(bbox.width, bbox.height)
+        # new_sub_plot_ax = []
+
+    # def get_available_plotting_space(self, annot):
+
+    # def plot_agent_info(self, agent_set, annot):
+
+
 
 
 def main(sqlite_file):
