@@ -34,11 +34,9 @@ class Cycvis():
         self.agent_info = self.get_agent_info()
         self.archs = self.available_archetypes()
         self.init_yr, self.timestep = self.sim_info()
-        self.bounds = self.get_bounds()
         self.fig, self.ax, self.basemap = self.plot_basemap()
         self.transactions = self.transactions()
         self.reactor_power = self.reactor_power()
-        self.reactor_markers = self.reactor_markers()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
         self.mpl_collections = self.plot_archetypes()
 
@@ -415,12 +413,13 @@ class Cycvis():
         """
         fig = plt.figure(figsize=self.figsize)
         ax_main = fig.add_axes(self.main_plot_axis_position)
+        bounds = self.get_bounds()
         basemap = Basemap(ax=ax_main,
                           projection='cyl',
-                          llcrnrlat=self.bounds[0],
-                          llcrnrlon=self.bounds[1],
-                          urcrnrlat=self.bounds[2],
-                          urcrnrlon=self.bounds[3],
+                          llcrnrlat=bounds[0],
+                          llcrnrlon=bounds[1],
+                          urcrnrlat=bounds[2],
+                          urcrnrlon=bounds[3],
                           fix_aspect=False,
                           anchor='NW')
         basemap.drawcoastlines(zorder=-15)
@@ -460,6 +459,7 @@ class Cycvis():
         """
         mpl = {}
         lons, lats, labels = self.get_lons_lats_labels('Reactor', True)
+        reactor_markers = self.reactor_markers()
         for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
             mpl[self.basemap.scatter(lon, lat,
@@ -467,7 +467,7 @@ class Cycvis():
                                      color='grey',
                                      label='Reactor' if i == 0 else '',
                                      edgecolors='black',
-                                     s=self.reactor_markers[(lon, lat)],
+                                     s=reactor_markers[(lon, lat)],
                                      zorder=5)] = agents
             plt.text(lon, lat, label,
                      fontsize=self.label_property['fontsize'],
@@ -587,6 +587,32 @@ class Cycvis():
                 capacity = str(self.reactor_power[int(agent)][0])
                 summary += capacity + " [MWe]\n"
         return summary
+
+    def get_timeseries_cum(self, in_list):
+        """ returns a timeseries list from in_list data.
+
+        Parameters
+        ----------
+        in_list: list
+            list of data to be created into timeseries
+            list[0] = time
+            list[1] = value, quantity
+        multiplyby: int
+            integer to multiply the value in the list by for
+            unit conversion from kilograms
+
+        Returns
+        -------
+        timeseries of commodities in kg or tons
+        """
+        value = 0
+        value_timeseries = []
+        array = np.array(in_list)
+        duration = 1 + int(self.timestep[-1] - self.timestep[0])
+        for i in range(0, duration):
+            value += sum(array[array[:, 0] == i][:, 1])
+            value_timeseries.append(value)
+        return value_timeseries
 
 
 def main(sqlite_file):
