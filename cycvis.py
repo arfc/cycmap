@@ -242,13 +242,13 @@ class Cycvis():
                 key = (senderid, receiverid, commodity), and
                 value = total transaction quantity over lifetime"
         """
-        query = ("SELECT senderid, receiverid, commodity, quantity"
+        query = ("SELECT senderid, receiverid, commodity, quantity, time"
                  " FROM TRANSACTIONS"
                  " INNER JOIN RESOURCES"
                  " ON TRANSACTIONS.resourceid = RESOURCES.resourceid"
                  " ORDER BY time")
         results = self.cur.execute(query)
-        transaction_dict = {}
+        transaction_dict = defaultdict(list)
         for row in results:
             lifetime = self.agent_info[str(row['senderid'])][-1]
             if lifetime == -1:
@@ -391,12 +391,13 @@ class Cycvis():
             sender_id = str(key[0])
             receiver_id = str(key[1])
             commodity = key[2]
-            quantity = self.transactions[key] * self.kg_to_tons
+            quantity = (self.kg_to_tons *
+                        np.sum([v[1] for v in self.transactions[key]]))
             sender_coord = (self.agent_info[sender_id][3],
                             self.agent_info[sender_id][2])
             receiver_coord = (self.agent_info[receiver_id][3],
                               self.agent_info[receiver_id][2])
-            arrows[(sender_coord, receiver_coord, commodity)] += quantity
+            arrows[(sender_coord, receiver_coord, commodity)] = quantity
         return arrows
 
     def plot_basemap(self):
