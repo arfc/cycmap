@@ -18,7 +18,7 @@ class Cycvis():
 
     # default settings for mpl plotting
     figsize = (9.8, 5)
-    main_plot_axis_position = [0.05, 0.05, 0.6, 0.9]
+    main_plot_axis_position = [0.02, 0.05, 0.6, 0.9]
     annot_property = {'xy': (0, 0),
                       'xytext': (1.02, 0.9785),
                       'textcoords': 'axes fraction',
