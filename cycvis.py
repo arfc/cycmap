@@ -616,7 +616,7 @@ class Cycvis():
             value_timeseries.append(value)
         return value_timeseries
 
-    def sub_ax_fractions(self, annot):
+    def available_subplotting_space(self, annot):
         # https://stackoverflow.com/questions/44700065
         # /matplotlib-direct-way-to-get-axes-coordinates
         # -of-annotation-boxes
@@ -632,8 +632,6 @@ class Cycvis():
         width = 0.25
         coords = [left, bottom, width, height]
         return coords
-
-    # def get_available_plotting_space(self, annot):
 
     # def plot_agent_info(self, agent_set, annot):
 
