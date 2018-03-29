@@ -20,7 +20,7 @@ class Cycvis():
     figsize = (9.8, 5)
     main_plot_axis_position = [0.02, 0.05, 0.6, 0.9]
     annot_property = {'xy': (0, 0),
-                      'xytext': (1.02, 0.9785),
+                      'xytext': (1.02, 0.99),
                       'textcoords': 'axes fraction',
                       'bbox': dict(boxstyle="round",
                                    alpha=(0.4),
@@ -616,19 +616,19 @@ class Cycvis():
         return value_timeseries
 
     def available_subplotting_space(self, annot):
-        # https://stackoverflow.com/questions/44700065
-        # /matplotlib-direct-way-to-get-axes-coordinates
-        # -of-annotation-boxes
+        # https://stackoverflow.com/questions/
+        # 29702424/how-to-get-matplotlib-figure-size
+        self.ax.figure.canvas.draw()
         annot_box = annot.get_bbox_patch()
         annot_box_height = annot_box.get_height()
         invert_dpi_scale = self.fig.dpi_scale_trans.inverted()
         fig_bbox = self.fig.get_window_extent().transformed(invert_dpi_scale)
         fig_height = self.fig.dpi * fig_bbox.height
         annot_box_height_fraction = annot_box_height / fig_height
-        height = 1 - 0.15 - annot_box_height_fraction
-        left = 0.62
-        bottom = 0.05
-        width = 0.25
+        left = 0.67
+        bottom = 0.08
+        width = 0.31
+        height = 1 - 0.1 - bottom - annot_box_height_fraction
         ax = [left, bottom, width, height]
         return ax
 
