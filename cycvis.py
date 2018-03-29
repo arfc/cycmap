@@ -616,10 +616,24 @@ class Cycvis():
             value_timeseries.append(value)
         return value_timeseries
 
-    def update_plot_space(self, annot):
-        renderer = self.fig.get_renderer()
-        bbox = annot.get_window_extent(renderer=renderer)
-        print(bbox.width, bbox.height)
+    def sub_ax_fractions(self, annot):
+        # https://stackoverflow.com/questions/44700065
+        # /matplotlib-direct-way-to-get-axes-coordinates
+        # -of-annotation-boxes
+        self.ax.figure.canvas.draw()
+        bbox = annot.get_bbox_patch()
+        height = bbox.get_height()
+        bbox = self.fig.get_window_extent().transformed(self.fig.dpi_scale_trans.inverted())
+        width, heightb = bbox.width*self.fig.dpi, bbox.height*self.fig.dpi
+        print(height)
+        fraction = height / heightb
+        print(fraction)
+        height = 1 - 0.15 - fraction
+        left = 0.62
+        bottom = 0.05
+        width = 0.25
+        coords = [left, bottom, width, height]
+        return coords
         # new_sub_plot_ax = []
 
     # def get_available_plotting_space(self, annot):
