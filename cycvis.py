@@ -620,27 +620,22 @@ class Cycvis():
         # https://stackoverflow.com/questions/44700065
         # /matplotlib-direct-way-to-get-axes-coordinates
         # -of-annotation-boxes
-        self.ax.figure.canvas.draw()
-        bbox = annot.get_bbox_patch()
-        height = bbox.get_height()
-        bbox = self.fig.get_window_extent().transformed(self.fig.dpi_scale_trans.inverted())
-        width, heightb = bbox.width*self.fig.dpi, bbox.height*self.fig.dpi
-        print(height)
-        fraction = height / heightb
-        print(fraction)
-        height = 1 - 0.15 - fraction
+        annot_box = annot.get_bbox_patch()
+        annot_box_height = annot_box.get_height()
+        invert_dpi_scale = self.fig.dpi_scale_trans.inverted()
+        fig_bbox = self.fig.get_window_extent().transformed(invert_dpi_scale)
+        fig_height = self.fig.dpi * fig_bbox.height
+        annot_box_height_fraction = annot_box_height / fig_height
+        height = 1 - 0.15 - annot_box_height_fraction
         left = 0.62
         bottom = 0.05
         width = 0.25
         coords = [left, bottom, width, height]
         return coords
-        # new_sub_plot_ax = []
 
     # def get_available_plotting_space(self, annot):
 
     # def plot_agent_info(self, agent_set, annot):
-
-
 
 
 def main(sqlite_file):
