@@ -39,6 +39,7 @@ class Cycvis():
         self.reactor_power = self.reactor_power()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
         self.mpl_collections = self.plot_archetypes()
+        self.sub_ax = self.fig.add_axes([2, 2, 0, 0])
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -549,6 +550,7 @@ class Cycvis():
                     if vis:
                         annot.set_visible(False)
                         self.fig.canvas.draw_idle()
+                        self.update_sub_ax([2, 2, 0, 0])
 
     def interactive_annotate(self):
         annot = self.ax.annotate('', xy=self.annot_property['xy'],
@@ -629,12 +631,16 @@ class Cycvis():
         bottom = 0.08
         width = 0.31
         height = 1 - 0.1 - bottom - annot_box_height_fraction
-        ax = [left, bottom, width, height]
-        return ax
+        bounds = [left, bottom, width, height]
+        return bounds
+
+    def update_sub_ax(self, new_bounds):
+        self.sub_ax.remove()
+        self.sub_ax = self.fig.add_axes(new_bounds)
 
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
-        sub_ax = self.fig.add_axes(sub_ax_coords)
+        self.update_sub_ax(sub_ax_coords)
         plt.plot([1, 4], [5, 7])
         plt.show()
 
