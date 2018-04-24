@@ -23,7 +23,7 @@ class Cycvis():
                       'xytext': (1.02, 0.99),
                       'textcoords': 'axes fraction',
                       'bbox': dict(boxstyle="round",
-                                   alpha=(0.4),
+                                   alpha=(0.0),
                                    fc="w")}
     label_property = {'fontsize': 8,
                       'vert_align': 'center',
@@ -543,8 +543,8 @@ class Cycvis():
                 if cont:
                     self.update_annotion(event, annot, agent_set)
                     annot.set_visible(True)
-                    self.fig.canvas.draw_idle()
                     self.plot_agent_info(agent_set, annot)
+                    self.fig.canvas.draw_idle()
                     break
                 else:
                     if vis:
@@ -578,17 +578,16 @@ class Cycvis():
         # reactor marker for power output
         # transaction for transactions (commodity and avg amount)
         agent_set = sorted(list(agent_set))
-        summary = ', '.join(agent_set)
+        summary = ''
         for i, agent in enumerate(agent_set):
-            summary += "\n"
-            agent = str(agent)
             name = self.agent_info[agent][0]
             spec = self.agent_info[agent][1]
-            summary += "[" + spec + "]\n"
-            summary += name + "\n"
+            summary += "[" + spec + "] "
+            summary += name + "    "
             if spec == 'Reactor':
                 capacity = str(self.reactor_power[int(agent)][0])
-                summary += capacity + " [MWe]\n"
+                summary += "(" + capacity + " [MWe])"
+            summary += "\n"
         return summary
 
     def get_timeseries_cum(self, in_list):
@@ -641,8 +640,22 @@ class Cycvis():
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
         self.update_sub_ax(sub_ax_coords)
-        plt.plot([1, 4], [5, 7])
-        plt.show()
+        for k, v in self.transactions.items():
+            for agent in agent_set:
+                senderid = str(k[0])
+                receiverid = str(k[1])
+                if agent == senderid:
+                    commod = k[2]
+                    commod_timeseries = self.get_timeseries_cum(v)
+                    self.sub_ax.plot(
+                        self.timestep, commod_timeseries, label=commod)
+                    self.sub_ax.legend(loc='best')
+                if agent == receiverid:
+                    commod = k[2]
+                    commod_timeseries = self.get_timeseries_cum(v)
+                    self.sub_ax.plot(
+                        self.timestep, commod_timeseries, label=commod)
+                    self.sub_ax.legend(loc='best')
 
 
 def main(sqlite_file):
