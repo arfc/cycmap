@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from mpl_toolkits.basemap import Basemap
 import sqlite3 as sql
 import matplotlib.cm as cm
@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 class Cycvis():
     rad_to_deg = 180 / np.pi
     kg_to_tons = 1 / 1000
-    quantity_to_linewidth = 0.1
+    quantity_to_linewidth = 0.02
     bound_addition = 0.05
     capacity_to_markersize = 0.5
 
@@ -441,9 +441,19 @@ class Cycvis():
         Returns
         -------
         """
-        legend = self.ax.legend(loc='best')
+        handles, labels = self.ax.get_legend_handles_labels()
+        legend = OrderedDict(zip(labels, handles))
+        legend = self.ax.legend(legend.values(),
+                                legend.keys(),
+                                columnspacing=0.1,
+                                labelspacing=0.1,
+                                fontsize=6.5,
+                                loc='best')
         for handle in legend.legendHandles:
             handle._sizes = [30]
+            handle._alpha = 1
+            handle._linewidth = 3
+        self.fig.canvas.draw_idle()
 
     def plot_reactors(self):
         """ Scatter plot of reactors with reactor capacity as marker size
@@ -466,7 +476,7 @@ class Cycvis():
             mpl[self.basemap.scatter(lon, lat,
                                      alpha=0.4,
                                      color='grey',
-                                     label='Reactor' if i == 0 else '',
+                                     label='Reactor',
                                      edgecolors='black',
                                      s=reactor_markers[(lon, lat)],
                                      zorder=5)] = agents
@@ -497,7 +507,7 @@ class Cycvis():
             agents = set(label.split(', '))
             mpl[self.basemap.scatter(lon, lat,
                                      alpha=0.4, s=200,
-                                     label=str(arch) if j == 0 else '',
+                                     label=str(arch),
                                      color=self.colors[i],
                                      zorder=5)] = agents
             plt.text(lon, lat, label,
@@ -521,14 +531,24 @@ class Cycvis():
         Returns
         -------
         """
+        commods = {k[2] for k in self.transactions.keys()}
+        num_commods = len(commods)
+        commod_cm = cm.Dark2(np.linspace(0, 1, num_commods))
+        commods_cm = {commod: color for commod,
+                      color in zip(commods, commod_cm)}
         for arch in self.archs:
             arrows = self.transaction_arrows(arch)
             for key, value in arrows.items():
+                commod = key[2]
                 point_a = [key[0][0], key[1][0]]
                 point_b = [key[0][1], key[1][1]]
                 linewidth = np.log(value * self.quantity_to_linewidth)
-                self.ax.plot(point_a, point_b, linewidth=linewidth,
-                             zorder=0, alpha=0.1)
+                self.ax.plot(point_a, point_b,
+                             linewidth=linewidth,
+                             color=commods_cm[commod],
+                             zorder=0,
+                             alpha=0.1,
+                             label=commod)
 
     def update_annotion(self, event, annot, agent_set):
         annot.xy = (event.xdata, event.ydata)
@@ -644,14 +664,13 @@ class Cycvis():
             for agent in agent_set:
                 senderid = str(k[0])
                 receiverid = str(k[1])
+                commod = k[2]
                 if agent == senderid:
-                    commod = k[2]
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.sub_ax.plot(
                         self.timestep, commod_timeseries, label=commod)
                     self.sub_ax.legend(loc='best')
                 if agent == receiverid:
-                    commod = k[2]
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.sub_ax.plot(
                         self.timestep, commod_timeseries, label=commod)
