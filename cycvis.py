@@ -19,7 +19,7 @@ class Cycvis():
 
     # default settings for mpl plotting
     figsize = (11, 5.5)
-    ax_main_box = [0.02, 0.05, 0.6, 0.9]
+    ax_main_box = [0.02, 0.05, 0.6, 0.8]
     ax_sub_box = [2, 2, 0, 0]
     annot_prop = {'xy': (0, 0),
                   'xytext': (1.02, 0.99),
@@ -46,7 +46,7 @@ class Cycvis():
         self.agent_info = self.get_agent_info()
         self.archs = self.available_archetypes()
         self.init_yr, self.timestep = self.sim_info()
-        self.fig, self.ax_main, self.ax_sub, self.basemap = self.plot_basemap()
+        self.fig, self.ax_main, self.ax_sub = self.plot_basemap(file_name)
         self.transactions = self.transactions()
         self.reactor_power = self.reactor_power()
         self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
@@ -419,7 +419,7 @@ class Cycvis():
             lines[(sender_coord, receiver_coord, commodity)] = quantity
         return lines
 
-    def plot_basemap(self):
+    def plot_basemap(self, file_name):
         """ Returns a matplotlib basemap for the simulation region
 
         Parameters
@@ -449,7 +449,7 @@ class Cycvis():
         basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
         basemap.drawcountries(zorder=0)
         basemap.drawstates(zorder=0)
-        return fig, ax_main, ax_sub, basemap
+        return fig, ax_main, ax_sub
 
     def resize_legend(self):
         """ Resizes scatter plot legends to the same size
@@ -589,8 +589,8 @@ class Cycvis():
         visible = annot.get_visible()
         if event.inaxes == self.ax_main:
             for mpl_object, agent_set in self.mpl_objects.items():
-                contains, ind = mpl_object.contains(event)
-                if contains:
+                cont, ind = mpl_object.contains(event)
+                if cont:
                     self.update_annotion(event, annot, agent_set)
                     annot.set_visible(True)
                     self.plot_agent_info(agent_set, annot)
@@ -600,6 +600,7 @@ class Cycvis():
                     if visible:
                         annot.set_visible(False)
                         self.update_ax_sub(self.ax_sub_box)
+                        self.fig.canvas.draw_idle()
                         self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
@@ -672,31 +673,6 @@ class Cycvis():
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
 
-    def sub_ax_check_buttons(self):
-        available_options = ('In_Commod', 'Out_Commod')
-        default_visibility = (True, False)
-        # for agent in agent_set:
-        #     spec = self.agent_info[agent][1]
-        #     if spec == 'Reactor':
-        #         available_options = available_options + ('Power')
-        #         default_visibility = default_visibility + (False)
-        #         break
-        sub_sub_ax = [0.72, 0.85, 0.2, 0.1]
-        sub_sub_ax = self.fig.add_axes(sub_sub_ax)
-        checkbox = widgets.CheckButtons(sub_sub_ax,
-                                        available_options,
-                                        default_visibility)
-        return checkbox
-
-    def sub_ax_check_buttons_connect(self, label):
-        if label == 'In_Commod':
-            for in_plot in self.in_commods:
-                in_plot.set_visible(not in_plot.get_visible())
-        elif label == 'Out_Commod':
-            for out_plot in self.out_commods:
-                out_plot.set_visible(not out_plot.get_visible())
-        self.plt.draw()
-
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
         self.update_ax_sub(sub_ax_coords)
@@ -709,21 +685,13 @@ class Cycvis():
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep,
                                      commod_timeseries,
-                                     visible=True,
                                      label=commod)
 
                 if agent == senderid:
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep,
                                      commod_timeseries,
-                                     visible=True,
                                      label=commod)
-                    # self.sub_ax.legend(loc='best')
-                    # self.sub_ax.legend(loc='best')
-        # self.in_commods = in_commods
-        # self.out_commods = out_commods
-        # self.sub_ax_checkbox = self.sub_ax_check_buttons()
-        # self.sub_ax_checkbox.on_click_evented(self.sub_ax_check_buttons_connect)
 
 
 def main(sqlite_file):
