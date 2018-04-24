@@ -3,6 +3,7 @@ from mpl_toolkits.basemap import Basemap
 import sqlite3 as sql
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib.widgets as widgets
 import numpy as np
 import sys
 import warnings
@@ -17,7 +18,7 @@ class Cycvis():
     capacity_to_markersize = 0.5
 
     # default settings for mpl plotting
-    figsize = (9.8, 5)
+    figsize = (11, 5.5)
     main_plot_axis_position = [0.02, 0.05, 0.6, 0.9]
     annot_property = {'xy': (0, 0),
                       'xytext': (1.02, 0.99),
@@ -447,7 +448,7 @@ class Cycvis():
                                 legend.keys(),
                                 columnspacing=0.1,
                                 labelspacing=0.1,
-                                fontsize=6.5,
+                                fontsize='x-small',
                                 loc='best')
         for handle in legend.legendHandles:
             handle._sizes = [30]
@@ -571,6 +572,8 @@ class Cycvis():
                         annot.set_visible(False)
                         self.fig.canvas.draw_idle()
                         self.update_sub_ax([2, 2, 0, 0])
+                        self.sub_ax_checkbox.on_clicked(self.sub_ax_check_buttons_connect)
+                        self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
         annot = self.ax.annotate('', xy=self.annot_property['xy'],
@@ -582,6 +585,7 @@ class Cycvis():
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
                                     self.click(event, annot))
+        self.sub_ax_checkbox.on_clicked(self.sub_ax_check_buttons_connect)
 
     def plot_archetypes(self):
         mpl_collections = {}
@@ -657,24 +661,59 @@ class Cycvis():
         self.sub_ax.remove()
         self.sub_ax = self.fig.add_axes(new_bounds)
 
+    def sub_ax_check_buttons(self):
+        available_options = ('In_Commod', 'Out_Commod')
+        default_visibility = (True, False)
+        # for agent in agent_set:
+        #     spec = self.agent_info[agent][1]
+        #     if spec == 'Reactor':
+        #         available_options = available_options + ('Power')
+        #         default_visibility = default_visibility + (False)
+        #         break
+        sub_sub_ax = [0.72, 0.85, 0.2, 0.1]
+        sub_sub_ax = self.fig.add_axes(sub_sub_ax)
+        checkbox = widgets.CheckButtons(sub_sub_ax,
+                                        available_options,
+                                        default_visibility)
+        return checkbox
+
+    def sub_ax_check_buttons_connect(self, label):
+        if label == 'In_Commod':
+            for in_plot in self.in_commods:
+                in_plot.set_visible(not in_plot.get_visible())
+        elif label == 'Out_Commod':
+            for out_plot in self.out_commods:
+                out_plot.set_visible(not out_plot.get_visible())
+        self.plt.draw()
+
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
         self.update_sub_ax(sub_ax_coords)
+        in_commods = []
+        out_commods = []
         for k, v in self.transactions.items():
             for agent in agent_set:
                 senderid = str(k[0])
                 receiverid = str(k[1])
                 commod = k[2]
-                if agent == senderid:
-                    commod_timeseries = self.get_timeseries_cum(v)
-                    self.sub_ax.plot(
-                        self.timestep, commod_timeseries, label=commod)
-                    self.sub_ax.legend(loc='best')
                 if agent == receiverid:
                     commod_timeseries = self.get_timeseries_cum(v)
-                    self.sub_ax.plot(
-                        self.timestep, commod_timeseries, label=commod)
-                    self.sub_ax.legend(loc='best')
+                    in_commods.append(self.sub_ax.plot(self.timestep,
+                                                       commod_timeseries,
+                                                       visible=True,
+                                                       label=commod))
+                if agent == senderid:
+                    commod_timeseries = self.get_timeseries_cum(v)
+                    out_commods.append(self.sub_ax.plot(self.timestep,
+                                                        commod_timeseries,
+                                                        visible=False,
+                                                        label=commod))
+                    # self.sub_ax.legend(loc='best')
+                    # self.sub_ax.legend(loc='best')
+        self.in_commods = in_commods
+        self.out_commods = out_commods
+        self.sub_ax_checkbox = self.sub_ax_check_buttons()
+        self.sub_ax_checkbox.on_clicked(self.sub_ax_check_buttons_connect)
 
 
 def main(sqlite_file):
