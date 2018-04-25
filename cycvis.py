@@ -41,7 +41,7 @@ class Cycvis():
     transactions_prop = {'alpha': 0.1,
                          'zorder': 0}
     is_incommod = True
-    is_outcommod = False
+    is_outcommod = True
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
@@ -604,7 +604,6 @@ class Cycvis():
                         annot.set_visible(False)
                         self.update_ax_sub(self.ax_sub_box)
                         self.fig.canvas.draw_idle()
-                        self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
         annot = self.ax_main.annotate('', xy=self.annot_prop['xy'],
@@ -680,11 +679,11 @@ class Cycvis():
     def sub_plot_title(self, agent_set):
         title = []
         if self.is_incommod:
-            title += ['In Commodity']
+            title += ['In']
         if self.is_outcommod:
-            title += ['Out Commodity']
+            title += ['Out']
         title = ' and '.join(title)
-        title += ' of ' + ', '.join(agent_set)
+        title += ' Commodities of ' + ', '.join(agent_set)
         title += ' vs. Time'
         return title
 
@@ -701,6 +700,12 @@ class Cycvis():
                                      scilimits=(0, 0))
         self.ax_sub.yaxis.offsetText.set_fontsize('x-small')
 
+    def subplot_label(self, commod, is_incommod):
+        if is_incommod:
+            return "In: " + commod
+        else:
+            return "Out: " + commod
+
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
         self.update_ax_sub(sub_ax_coords)
@@ -710,17 +715,31 @@ class Cycvis():
                 receiverid = str(k[1])
                 commod = k[2]
                 if self.is_incommod and agent == receiverid:
+                    is_in = True
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=commod)
+                                     label=self.subplot_label(commod, is_in))
                 if self.is_outcommod and agent == senderid:
+                    is_in = False
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=commod)
+                                     label=self.subplot_label(commod, is_in))
         self.ax_sub.set_title(self.sub_plot_title(agent_set),
                               fontsize='small')
+        handles, labels = self.ax_sub.get_legend_handles_labels()
+        legend = OrderedDict(zip(labels, handles))
+        legend = self.ax_sub.legend(legend.values(),
+                                    legend.keys(),
+                                    columnspacing=0.1,
+                                    labelspacing=0.1,
+                                    fontsize='x-small',
+                                    loc='best')
+        for handle in legend.legendHandles:
+            handle._sizes = [30]
+            handle._alpha = 1
+            handle._linewidth = 3
 
 
 def main(sqlite_file):
