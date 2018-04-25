@@ -663,10 +663,13 @@ class Cycvis():
         fig_bbox = self.fig.get_window_extent().transformed(invert_dpi_scale)
         fig_height = self.fig.dpi * fig_bbox.height
         annot_box_height_fraction = annot_box_height / fig_height
-        left = 0.67
-        bottom = 0.08
-        width = 0.31
-        height = 0.8 - bottom - annot_box_height_fraction
+        margin = 0.05
+        main_plot_width = self.ax_main_box[2] + self.ax_main_box[0]
+        main_plot_height = self.ax_main_box[1] + self.ax_main_box[3]
+        left = main_plot_width + margin
+        bottom = margin
+        width = 1 - (margin + left)
+        height = main_plot_height - (annot_box_height_fraction + 2 * margin)
         bounds = [left, bottom, width, height]
         return bounds
 
