@@ -665,7 +665,7 @@ class Cycvis():
         left = 0.67
         bottom = 0.08
         width = 0.31
-        height = 1 - 0.1 - bottom - annot_box_height_fraction
+        height = 0.8 - bottom - annot_box_height_fraction
         bounds = [left, bottom, width, height]
         return bounds
 
