@@ -667,9 +667,11 @@ class Cycvis():
         main_plot_width = self.ax_main_box[2] + self.ax_main_box[0]
         main_plot_height = self.ax_main_box[1] + self.ax_main_box[3]
         left = main_plot_width + margin
-        bottom = margin
+        bottom = 2 * margin
         width = 1 - (margin + left)
-        height = main_plot_height - (annot_box_height_fraction + 2 * margin)
+        height = main_plot_height - (annot_box_height_fraction +
+                                     bottom +
+                                     margin)
         bounds = [left, bottom, width, height]
         return bounds
 
@@ -679,6 +681,9 @@ class Cycvis():
         self.ax_sub.ticklabel_format(axis='y',
                                      style='sci',
                                      scilimits=(0, 0))
+        self.ax_sub.set_xlabel('Time [yr]')
+        self.ax_sub.set_ylabel('Mass [kg]')
+        self.ax_sub.set_title(self.sub_plot_title())
 
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
@@ -693,7 +698,6 @@ class Cycvis():
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
-
                 if agent == senderid:
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep_yr,
