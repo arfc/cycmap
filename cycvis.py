@@ -684,18 +684,22 @@ class Cycvis():
         if self.is_outcommod:
             title += ['Out Commodity']
         title = ' and '.join(title)
-        title += 'of ' + ', '.join(agent_set)
+        title += ' of ' + ', '.join(agent_set)
         title += ' vs. Time'
         return title
 
     def update_ax_sub(self, new_bounds):
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
+        self.ax_sub.set_xlabel('Time [yr]', fontsize='small')
+        self.ax_sub.set_ylabel('Mass [kg]', fontsize='small')
+        self.ax_sub.tick_params(axis='both',
+                                labelsize='x-small')
         self.ax_sub.ticklabel_format(axis='y',
                                      style='sci',
+                                     useOffset=True,
                                      scilimits=(0, 0))
-        self.ax_sub.set_xlabel('Time [yr]')
-        self.ax_sub.set_ylabel('Mass [kg]')
+        self.ax_sub.yaxis.offsetText.set_fontsize('x-small')
 
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
@@ -715,7 +719,8 @@ class Cycvis():
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
-        self.ax_sub.set_title(self.sub_plot_title(agent_set))
+        self.ax_sub.set_title(self.sub_plot_title(agent_set),
+                              fontsize='small')
 
 
 def main(sqlite_file):
