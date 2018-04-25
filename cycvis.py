@@ -40,6 +40,8 @@ class Cycvis():
                        'zorder': 5}
     transactions_prop = {'alpha': 0.1,
                          'zorder': 0}
+    is_incommod = True
+    is_outcommod = False
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
@@ -675,6 +677,17 @@ class Cycvis():
         bounds = [left, bottom, width, height]
         return bounds
 
+    def sub_plot_title(self, agent_set):
+        title = []
+        if self.is_incommod:
+            title += ['In Commodity']
+        if self.is_outcommod:
+            title += ['Out Commodity']
+        title = ' and '.join(title)
+        title += 'of ' + ', '.join(agent_set)
+        title += ' vs. Time'
+        return title
+
     def update_ax_sub(self, new_bounds):
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
@@ -683,7 +696,6 @@ class Cycvis():
                                      scilimits=(0, 0))
         self.ax_sub.set_xlabel('Time [yr]')
         self.ax_sub.set_ylabel('Mass [kg]')
-        self.ax_sub.set_title(self.sub_plot_title())
 
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
@@ -693,16 +705,17 @@ class Cycvis():
                 senderid = str(k[0])
                 receiverid = str(k[1])
                 commod = k[2]
-                if agent == receiverid:
+                if self.is_incommod and agent == receiverid:
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
-                if agent == senderid:
+                if self.is_outcommod and agent == senderid:
                     commod_timeseries = self.get_timeseries_cum(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
+        self.ax_sub.set_title(self.sub_plot_title(agent_set))
 
 
 def main(sqlite_file):
