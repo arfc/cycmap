@@ -45,7 +45,7 @@ class Cycvis():
         self.cur = self.get_cursor(file_name)
         self.agent_info = self.get_agent_info()
         self.archs = self.available_archetypes()
-        self.init_yr, self.timestep = self.sim_info()
+        self.init_yr, self.timestep, self.timestep_yr = self.sim_info()
         self.fig, self.ax_main, self.ax_sub = self.plot_basemap(file_name)
         self.transactions = self.transactions()
         self.reactor_power = self.reactor_power()
@@ -158,7 +158,8 @@ class Cycvis():
         init_month = results['initialmonth']
         duration = results['duration']
         timestep = np.linspace(init_month, init_month + duration - 1, duration)
-        return init_year, timestep
+        timestep_yr = init_year + (timestep / 12)
+        return init_year, timestep, timestep_yr
 
     def get_archetype_info(self, archetype):
         archetype_info = {}
@@ -683,13 +684,13 @@ class Cycvis():
                 commod = k[2]
                 if agent == receiverid:
                     commod_timeseries = self.get_timeseries_cum(v)
-                    self.ax_sub.plot(self.timestep,
+                    self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
 
                 if agent == senderid:
                     commod_timeseries = self.get_timeseries_cum(v)
-                    self.ax_sub.plot(self.timestep,
+                    self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
                                      label=commod)
 
