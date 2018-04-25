@@ -676,6 +676,9 @@ class Cycvis():
     def update_ax_sub(self, new_bounds):
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
+        self.ax_sub.ticklabel_format(axis='y',
+                                     style='sci',
+                                     scilimits=(0, 0))
 
     def plot_agent_info(self, agent_set, annot):
         sub_ax_coords = self.available_subplotting_space(annot)
