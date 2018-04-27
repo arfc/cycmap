@@ -19,14 +19,14 @@ class Cycvis():
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
-        self.agent_info = self.agent_info()
-        self.archs = self.available_archetypes()
-        self.init_yr, self.timestep, self.timestep_yr = self.sim_info()
+        self.agent_info = self.get_agent_info()
+        self.archs = self.list_available_archetypes()
+        self.init_yr, self.timestep, self.timestep_yr = self.get_sim_info()
         (self.fig, self.ax_main,
-         self.ax_sub, self.agent_description) = self.ax_main_basemap()
-        self.transactions = self.transactions()
-        self.reactor_info = self.reactor_info()
-        self.mpl_objects = self.ax_main_archetypes()
+         self.ax_sub, self.agent_description) = self.ax_main_plot_basemap()
+        self.transactions = self.get_transactions()
+        self.reactor_info = self.get_reactor_info()
+        self.mpl_objects = self.ax_main_plot_agents()
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -46,7 +46,7 @@ class Cycvis():
         cur = con.cursor()
         return cur
 
-    def agent_info(self):
+    def get_agent_info(self):
         """ Returns a dictionary of agents of an archetype with their prototype,
         specification, and coordinates
 
@@ -84,7 +84,7 @@ class Cycvis():
                       for agent in results}
         return agent_info
 
-    def available_archetypes(self):
+    def list_available_archetypes(self):
         """ Returns list of all CYCAMORE archetypes  excluding ManagerInst,
         DeployInst, and GrowthRegion.
 
@@ -108,7 +108,7 @@ class Cycvis():
         archetypes = {agent['spec'][10:] for agent in results} - blacklist
         return list(archetypes)
 
-    def sim_info(self):
+    def get_sim_info(self):
         """ Returns simulation start year, month, duration and
         timesteps (in numpy linspace).
 
@@ -137,7 +137,7 @@ class Cycvis():
         timestep_yr = init_year + (timestep / 12)
         return init_year, timestep, timestep_yr
 
-    def arch_info(self, archetype):
+    def get_arch_info(self, archetype):
         archetype_info = {}
         for k, v in self.agent_info.items():
             agentid = k
@@ -146,7 +146,7 @@ class Cycvis():
                 archetype_info[agentid] = v
         return archetype_info
 
-    def basemap_bounds(self):
+    def calculate_basemap_bounds(self):
         """ Returns a list with upper and lower limits of latitude and longitude
         for use with Basemap.
 
@@ -180,7 +180,7 @@ class Cycvis():
         bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
         return bounds
 
-    def reactor_info(self):
+    def get_reactor_info(self):
         query = ("SELECT DISTINCT timeseriespower.agentid, value,"
                  " longitude, latitude"
                  " FROM timeseriespower"
@@ -195,7 +195,7 @@ class Cycvis():
                                              row['latitude'])]
         return reactor_info
 
-    def reactor_markers(self):
+    def calculate_reactor_marker_size(self):
         """ Returns a dictionary of reactor coordinates and marker size using its
         power capacity
 
@@ -220,7 +220,7 @@ class Cycvis():
                                              capacity_to_markersize)
         return reactor_markers
 
-    def transactions(self):
+    def get_transactions(self):
         """ Returns a dictionary of transactions between agents
 
         Parameters
@@ -254,7 +254,7 @@ class Cycvis():
                              ].append((row['time'], row['quantity']))
         return transaction_dict
 
-    def lons_lats_labels(self, arch, merge=False):
+    def get_lons_lats_labels(self, arch, merge=False):
         """ Returns longitude, latititude, and agentid as separate lists. Merges
         agentids with same lon, lat into comma sepparated string if merge=True
 
@@ -277,7 +277,7 @@ class Cycvis():
         labels: list
                 list of agentids
         """
-        arch_info = self.arch_info(arch)
+        arch_info = self.get_arch_info(arch)
         # agent[3] = longitude
         # agent[2] = latitude
         lons = [agent[3] for agent in arch_info.values()]
@@ -355,7 +355,7 @@ class Cycvis():
                 new_label.append(item)
         return lons, lats, new_label
 
-    def transaction_lines(self, arch):
+    def calculate_transactions_line_width(self, arch):
         """ Returns a dictionary of transactions between agents for plotting
 
         Parameters
@@ -382,7 +382,7 @@ class Cycvis():
                 value = average quantity moved during lifetime in [MTHM]"
         """
         kg_to_tons = 1 / 1000
-        lons, lats, labels = self.lons_lats_labels(arch, True)
+        lons, lats, labels = self.get_lons_lats_labels(arch, True)
         lines = defaultdict(float)
         for key in self.transactions.keys():
             commodity = key[2]
@@ -399,7 +399,7 @@ class Cycvis():
             lines[(sender_coord, receiver_coord, commodity)] = quantity
         return lines
 
-    def ax_main_basemap(self):
+    def ax_main_plot_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
 
         Parameters
@@ -423,7 +423,7 @@ class Cycvis():
                                       bbox=annotation_bbox,
                                       verticalalignment='top',
                                       textcoords='axes fraction')
-        bounds = self.basemap_bounds()
+        bounds = self.calculate_basemap_bounds()
         basemap = Basemap(ax=ax_main,
                           projection='cyl',
                           llcrnrlat=bounds[0],
@@ -465,7 +465,7 @@ class Cycvis():
             handle._linewidth = 3
         ax.figure.canvas.update()
 
-    def ax_main_reactors(self):
+    def ax_main_plot_reactors(self):
         """ Scatter plot of reactors with reactor capacity as marker size
 
         Parameters
@@ -475,8 +475,8 @@ class Cycvis():
         -------
         """
         mpl = {}
-        lons, lats, labels = self.lons_lats_labels('Reactor', True)
-        reactor_markers = self.reactor_markers()
+        lons, lats, labels = self.get_lons_lats_labels('Reactor', True)
+        reactor_markers = self.calculate_reactor_marker_size()
         for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
             mpl[self.ax_main.scatter(lon, lat,
@@ -492,7 +492,7 @@ class Cycvis():
                               horizontalalignment='center')
         return mpl
 
-    def ax_main_nonreactors(self, arch, i):
+    def ax_main_plot_nonreactors(self, arch, i):
         """ Scatter plot of nonreactors
 
         Parameters
@@ -510,7 +510,7 @@ class Cycvis():
         mpl = {}
         num_archs = len(self.archs)
         colors = cm.rainbow(np.linspace(0, 1, num_archs))
-        lons, lats, labels = self.lons_lats_labels(arch, True)
+        lons, lats, labels = self.get_lons_lats_labels(arch, True)
         for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
             label = str(arch)
@@ -526,7 +526,7 @@ class Cycvis():
                               horizontalalignment='center')
         return mpl
 
-    def ax_main_transactions(self):
+    def ax_main_plot_transactions(self):
         """ Line plot of transactions during simulation with logarithmic linewidth
 
         Parameters
@@ -548,7 +548,7 @@ class Cycvis():
         commod_cm = {commod: color for commod, color
                      in zip(commods, commod_cm)}
         for arch in self.archs:
-            transactions = self.transaction_lines(arch)
+            transactions = self.calculate_transactions_line_width(arch)
             for key, value in transactions.items():
                 commod = key[2]
                 point_a = [key[0][0], key[1][0]]
@@ -561,13 +561,13 @@ class Cycvis():
                                   linewidth=linewidth,
                                   color=commod_cm[commod])
 
-    def ax_sub_agent_description(self, event, agent_set):
+    def ax_sub_plot_agent_info(self, event, agent_set):
         self.agent_description.xy = (event.xdata, event.ydata)
-        summary = self.ax_sub_agent_info(agent_set)
+        summary = self.ax_sub_get_agent_info(agent_set)
         self.agent_description.set_text(summary)
         self.agent_description.set_visible(True)
 
-    def ax_sub_agent_info(self, agent_set):
+    def ax_sub_get_agent_info(self, agent_set):
         agent_set = sorted(list(agent_set))
         summary = ''
         for i, agent in enumerate(agent_set):
@@ -587,7 +587,7 @@ class Cycvis():
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.ax_sub_agent_description(event, agent_set)
+                    self.ax_sub_plot_agent_info(event, agent_set)
                     self.ax_sub_transaction(agent_set)
                     self.fig.canvas.draw_idle()
                     break
@@ -602,18 +602,18 @@ class Cycvis():
                                     lambda event:
                                     self.ax_main_click_event(event))
 
-    def ax_main_archetypes(self):
+    def ax_main_plot_agents(self):
         mpl_objects = {}
         for i, arch in enumerate(self.archs):
             if arch == 'Reactor':
-                reactors = self.ax_main_reactors()
+                reactors = self.ax_main_plot_reactors()
                 mpl_objects = {**mpl_objects, **reactors}
             else:
-                non_reactors = self.ax_main_nonreactors(arch, i)
+                non_reactors = self.ax_main_plot_nonreactors(arch, i)
                 mpl_objects = {**mpl_objects, **non_reactors}
         return mpl_objects
 
-    def cumulative_timeseries(self, in_list):
+    def calculate_cumulative_timeseries(self, in_list):
         """ returns a timeseries list from in_list data.
 
         Parameters
@@ -639,7 +639,7 @@ class Cycvis():
             value_timeseries.append(value)
         return value_timeseries
 
-    def ax_sub_size(self):
+    def calculate_ax_sub_bounds(self):
         # https://stackoverflow.com/questions/
         # 29702424/how-to-get-matplotlib-figure-size
         self.ax_main.figure.canvas.draw()
@@ -661,7 +661,7 @@ class Cycvis():
         bounds = [left, bottom, width, height]
         return bounds
 
-    def ax_sub_plot_title(self, agent_set):
+    def ax_sub_get_plot_title(self, agent_set):
         title = []
         if self.is_incommod:
             title += ['In']
@@ -672,7 +672,7 @@ class Cycvis():
         title += ' vs. Time'
         return title
 
-    def ax_sub_format(self, new_bounds):
+    def ax_sub_update_bounds(self, new_bounds):
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
         self.ax_sub.set_xlabel('Time [yr]', fontsize='small')
@@ -685,14 +685,14 @@ class Cycvis():
                                      scilimits=(0, 0))
         self.ax_sub.yaxis.offsetText.set_fontsize('x-small')
 
-    def ax_sub_label(self, commod, is_incommod):
+    def ax_sub_get_label(self, commod, is_incommod):
         if is_incommod:
             return "In: " + commod
         else:
             return "Out: " + commod
 
     def ax_sub_transaction(self, agent_set):
-        sub_ax_coords = self.ax_sub_size()
+        sub_ax_coords = self.calculate_ax_sub_bounds()
         self.ax_sub_format(sub_ax_coords)
         for k, v in self.transactions.items():
             for agent in agent_set:
@@ -701,17 +701,17 @@ class Cycvis():
                 commod = k[2]
                 if self.is_incommod and agent == receiverid:
                     is_in = True
-                    commod_timeseries = self.cumulative_timeseries(v)
+                    commod_timeseries = self.calculate_cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=self.ax_sub_label(commod, is_in))
+                                     label=self.ax_sub_get_label(commod, is_in))
                 if self.is_outcommod and agent == senderid:
                     is_in = False
-                    commod_timeseries = self.cumulative_timeseries(v)
+                    commod_timeseries = self.calculate_cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=self.ax_sub_label(commod, is_in))
-        self.ax_sub.set_title(self.ax_sub_plot_title(agent_set),
+                                     label=self.ax_sub_get_label(commod, is_in))
+        self.ax_sub.set_title(self.ax_sub_get_plot_title(agent_set),
                               fontsize='small')
         self.format_legend(self.ax_sub)
 
@@ -729,7 +729,7 @@ def main(sqlite_file):
     -------
     """
     cycvis = Cycvis(sqlite_file)
-    cycvis.ax_main_transactions()
+    cycvis.ax_main_plot_transactions()
     cycvis.format_legend(cycvis.ax_main)
     cycvis.interactive_annotate()
     plt.show()
