@@ -10,35 +10,10 @@ warnings.filterwarnings('ignore')
 
 
 class Cycvis():
-    rad_to_deg = 180 / np.pi
-    kg_to_tons = 1 / 1000
-    quantity_to_linewidth = 0.02
-    bound_addition = 0.05
-    capacity_to_markersize = 0.5
-
     # default settings for mpl plotting
     figsize = (11, 5.5)
     ax_main_box = [0.02, 0.05, 0.6, 0.8]
     ax_sub_box = [2, 2, 0, 0]
-    annot_prop = {'xy': (0, 0),
-                  'xytext': (1.02, 0.99),
-                  'textcoords': 'axes fraction',
-                  'bbox': dict(boxstyle="round", alpha=(0.0), fc="w")}
-    label_prop = {'fontsize': 8,
-                  'vert': 'center',
-                  'horz': 'center'}
-    line_prop = {'zorder': 0,
-                 'alpha': 0.1}
-    reactor_prop = {'alpha': 0.4,
-                    'color': 'grey',
-                    'label': 'Reactor',
-                    'edge': 'black',
-                    'zorder': 5}
-    nonreactor_prop = {'alpha': 0.4,
-                       's': 150,
-                       'zorder': 5}
-    transactions_prop = {'alpha': 0.1,
-                         'zorder': 0}
     is_incommod = True
     is_outcommod = True
 
@@ -51,6 +26,12 @@ class Cycvis():
         self.transactions = self.transactions()
         self.reactor_info = self.reactor_info()
         self.mpl_objects = self.ax_main_archetypes()
+        self.annotation = self.ax_main.annotate('', xy=(0, 0),
+                                                xytext=(1.02, 0.99),
+                                                textcoords='axes fraction',
+                                                bbox=dict(boxstyle="round", alpha=(0.0), fc="w"),
+                                                verticalalignment='top',
+                                                visible=False)
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -188,14 +169,15 @@ class Cycvis():
                 upper right latitude,
                 upper right longitude in decimal degrees
         """
+        bound_addition = 0.05
         latitudes = [info[2] for info in list(self.agent_info.values())]
         longitudes = [info[3] for info in list(self.agent_info.values())]
         llcrnrlat = min(latitudes)
         llcrnrlon = min(longitudes)
         urcrnrlat = max(latitudes)
         urcrnrlon = max(longitudes)
-        extra_lon = (urcrnrlon - llcrnrlon) * self.bound_addition
-        extra_lat = (urcrnrlat - llcrnrlat) * 3 * self.bound_addition
+        extra_lon = (urcrnrlon - llcrnrlon) * bound_addition
+        extra_lat = (urcrnrlat - llcrnrlat) * 3 * bound_addition
         llcrnrlat -= extra_lat
         llcrnrlon -= extra_lon
         urcrnrlat += extra_lat
@@ -234,12 +216,13 @@ class Cycvis():
                 key = (longitude, latitude) in float, and
                 value = marker size in float for matplotlib scatter"
         """
+        capacity_to_markersize = 0.5
         reactor_markers = defaultdict(float)
         for k, v in self.reactor_info.items():
             coordinates = v[1]
             capacity = v[0]
             reactor_markers[coordinates] += (capacity *
-                                             self.capacity_to_markersize)
+                                             capacity_to_markersize)
         return reactor_markers
 
     def transactions(self):
@@ -403,6 +386,7 @@ class Cycvis():
                 key = tuple of sender coord, receiver coord, and commodity, and
                 value = average quantity moved during lifetime in [MTHM]"
         """
+        kg_to_tons = 1 / 1000
         lons, lats, labels = self.lons_lats_labels(arch, True)
         lines = defaultdict(float)
         for key in self.transactions.keys():
@@ -414,7 +398,7 @@ class Cycvis():
             receiver_lon = self.agent_info[receiver_id][3]
             receiver_lat = self.agent_info[receiver_id][2]
             quantity = (np.sum([v[1] for v in self.transactions[key]]) *
-                        self.kg_to_tons)
+                        kg_to_tons)
             sender_coord = (sender_lon, sender_lat)
             receiver_coord = (receiver_lon, receiver_lat)
             lines[(sender_coord, receiver_coord, commodity)] = quantity
@@ -490,16 +474,16 @@ class Cycvis():
         for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
             mpl[self.ax_main.scatter(lon, lat,
-                                     alpha=self.reactor_prop['alpha'],
-                                     label=self.reactor_prop['label'],
-                                     color=self.reactor_prop['color'],
-                                     edgecolors=self.reactor_prop['edge'],
-                                     zorder=self.reactor_prop['zorder'],
+                                     zorder=5,
+                                     alpha=0.4,
+                                     color='grey',
+                                     label='Reactor',
+                                     edgecolors='black',
                                      s=reactor_markers[(lon, lat)])] = agents
             self.ax_main.text(lon, lat, label,
-                              fontsize=self.label_prop['fontsize'],
-                              verticalalignment=self.label_prop['vert'],
-                              horizontalalignment=self.label_prop['horz'])
+                              fontsize=8,
+                              verticalalignment='center',
+                              horizontalalignment='center')
         return mpl
 
     def ax_main_nonreactors(self, arch, i):
@@ -525,15 +509,15 @@ class Cycvis():
             agents = set(label.split(', '))
             label = str(arch)
             mpl[self.ax_main.scatter(lon, lat,
-                                     s=self.nonreactor_prop['s'],
-                                     alpha=self.nonreactor_prop['alpha'],
-                                     zorder=self.nonreactor_prop['zorder'],
+                                     s=150,
+                                     zorder=5,
+                                     alpha=0.4,
                                      label=label,
                                      color=colors[i])] = agents
             self.ax_main.text(lon, lat, label,
-                              fontsize=self.label_prop['fontsize'],
-                              verticalalignment=self.label_prop['vert'],
-                              horizontalalignment=self.label_prop['horz'])
+                              fontsize=8,
+                              verticalalignment='center',
+                              horizontalalignment='center')
         return mpl
 
     def ax_main_transactions(self):
@@ -551,6 +535,7 @@ class Cycvis():
         Returns
         -------
         """
+        quantity_to_linewidth = 0.02
         commods = {k[2] for k in self.transactions.keys()}
         num_commods = len(commods)
         commod_cm = cm.Dark2(np.linspace(0, 1, num_commods))
@@ -562,19 +547,19 @@ class Cycvis():
                 commod = key[2]
                 point_a = [key[0][0], key[1][0]]
                 point_b = [key[0][1], key[1][1]]
-                linewidth = np.log(value * self.quantity_to_linewidth)
+                linewidth = np.log(value * quantity_to_linewidth)
                 self.ax_main.plot(point_a, point_b,
+                                  zorder=0,
+                                  alpha=0.1,
                                   label=commod,
                                   linewidth=linewidth,
-                                  color=commod_cm[commod],
-                                  alpha=self.transactions_prop['alpha'],
-                                  zorder=self.transactions_prop['zorder'])
+                                  color=commod_cm[commod])
 
-    def ax_sub_annotation(self, event, annot, agent_set):
-        annot.xy = (event.xdata, event.ydata)
+    def ax_sub_annotation(self, event, agent_set):
+        self.annotation.xy = (event.xdata, event.ydata)
         summary = self.ax_sub_agent_info(agent_set)
-        annot.set_text(summary)
-        annot.set_visible(True)
+        self.annotation.set_text(summary)
+        self.annotation.set_visible(True)
 
     def ax_sub_agent_info(self, agent_set):
         agent_set = sorted(list(agent_set))
@@ -590,32 +575,26 @@ class Cycvis():
             summary += "\n"
         return summary
 
-    def ax_main_click_event(self, event, annot):
-        visible = annot.get_visible()
+    def ax_main_click_event(self, event):
+        visible = self.annotation.get_visible()
         if event.inaxes == self.ax_main:
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.ax_sub_annotation(event, annot, agent_set)
-                    self.ax_sub_transaction(agent_set, annot)
+                    self.ax_sub_annotation(event, agent_set)
+                    self.ax_sub_transaction(agent_set)
                     self.fig.canvas.draw_idle()
                     break
                 else:
                     if visible:
-                        annot.set_visible(False)
+                        self.annotation.set_visible(False)
                         self.ax_sub_format(self.ax_sub_box)
                         self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
-        annot = self.ax_main.annotate('', xy=self.annot_prop['xy'],
-                                      xytext=self.annot_prop['xytext'],
-                                      textcoords=self.annot_prop['textcoords'],
-                                      bbox=self.annot_prop['bbox'],
-                                      verticalalignment='top',
-                                      visible=False)
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
-                                    self.ax_main_click_event(event, annot))
+                                    self.ax_main_click_event(event))
 
     def ax_main_archetypes(self):
         mpl_objects = {}
@@ -654,11 +633,11 @@ class Cycvis():
             value_timeseries.append(value)
         return value_timeseries
 
-    def ax_sub_size(self, annot):
+    def ax_sub_size(self):
         # https://stackoverflow.com/questions/
         # 29702424/how-to-get-matplotlib-figure-size
         self.ax_main.figure.canvas.draw()
-        annot_box = annot.get_bbox_patch()
+        annot_box = self.annotation.get_bbox_patch()
         annot_box_height = annot_box.get_height()
         invert_dpi_scale = self.fig.dpi_scale_trans.inverted()
         fig_bbox = self.fig.get_window_extent().transformed(invert_dpi_scale)
@@ -706,8 +685,8 @@ class Cycvis():
         else:
             return "Out: " + commod
 
-    def ax_sub_transaction(self, agent_set, annot):
-        sub_ax_coords = self.ax_sub_size(annot)
+    def ax_sub_transaction(self, agent_set):
+        sub_ax_coords = self.ax_sub_size()
         self.ax_sub_format(sub_ax_coords)
         for k, v in self.transactions.items():
             for agent in agent_set:
