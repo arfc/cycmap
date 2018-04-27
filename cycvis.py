@@ -3,7 +3,6 @@ from mpl_toolkits.basemap import Basemap
 import sqlite3 as sql
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import matplotlib.widgets as widgets
 import numpy as np
 import sys
 import warnings
@@ -45,14 +44,13 @@ class Cycvis():
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
-        self.agent_info = self.get_agent_info()
+        self.agent_info = self.agent_info()
         self.archs = self.available_archetypes()
         self.init_yr, self.timestep, self.timestep_yr = self.sim_info()
-        self.fig, self.ax_main, self.ax_sub = self.plot_basemap(file_name)
+        self.fig, self.ax_main, self.ax_sub = self.ax_main_basemap(file_name)
         self.transactions = self.transactions()
-        self.reactor_power = self.reactor_power()
-        self.colors = cm.rainbow(np.linspace(0, 1, len(self.archs)))
-        self.mpl_objects = self.plot_archetypes()
+        self.reactor_info = self.reactor_info()
+        self.mpl_objects = self.ax_main_archetypes()
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -72,7 +70,7 @@ class Cycvis():
         cur = con.cursor()
         return cur
 
-    def get_agent_info(self):
+    def agent_info(self):
         """ Returns a dictionary of agents of an archetype with their prototype,
         specification, and coordinates
 
@@ -163,7 +161,7 @@ class Cycvis():
         timestep_yr = init_year + (timestep / 12)
         return init_year, timestep, timestep_yr
 
-    def get_archetype_info(self, archetype):
+    def arch_info(self, archetype):
         archetype_info = {}
         for k, v in self.agent_info.items():
             agentid = k
@@ -172,7 +170,7 @@ class Cycvis():
                 archetype_info[agentid] = v
         return archetype_info
 
-    def get_bounds(self):
+    def basemap_bounds(self):
         """ Returns a list with upper and lower limits of latitude and longitude
         for use with Basemap.
 
@@ -205,7 +203,7 @@ class Cycvis():
         bounds = [llcrnrlat, llcrnrlon, urcrnrlat, urcrnrlon]
         return bounds
 
-    def reactor_power(self):
+    def reactor_info(self):
         query = ("SELECT DISTINCT timeseriespower.agentid, value,"
                  " longitude, latitude"
                  " FROM timeseriespower"
@@ -213,12 +211,12 @@ class Cycvis():
                  " ON timeseriespower.agentid = agentposition.agentid"
                  " WHERE value > 0")
         results = self.cur.execute(query)
-        reactor_power = {}
+        reactor_info = {}
         for row in results:
-            reactor_power[row['agentid']] = [row['value'],
-                                             (row['longitude'],
-                                              row['latitude'])]
-        return reactor_power
+            reactor_info[row['agentid']] = [row['value'],
+                                            (row['longitude'],
+                                             row['latitude'])]
+        return reactor_info
 
     def reactor_markers(self):
         """ Returns a dictionary of reactor coordinates and marker size using its
@@ -237,7 +235,7 @@ class Cycvis():
                 value = marker size in float for matplotlib scatter"
         """
         reactor_markers = defaultdict(float)
-        for k, v in self.reactor_power.items():
+        for k, v in self.reactor_info.items():
             coordinates = v[1]
             capacity = v[0]
             reactor_markers[coordinates] += (capacity *
@@ -278,7 +276,7 @@ class Cycvis():
                              ].append((row['time'], row['quantity']))
         return transaction_dict
 
-    def get_lons_lats_labels(self, arch, merge=False):
+    def lons_lats_labels(self, arch, merge=False):
         """ Returns longitude, latititude, and agentid as separate lists. Merges
         agentids with same lon, lat into comma sepparated string if merge=True
 
@@ -301,7 +299,7 @@ class Cycvis():
         labels: list
                 list of agentids
         """
-        arch_info = self.get_archetype_info(arch)
+        arch_info = self.arch_info(arch)
         # agent[3] = longitude
         # agent[2] = latitude
         lons = [agent[3] for agent in arch_info.values()]
@@ -405,7 +403,7 @@ class Cycvis():
                 key = tuple of sender coord, receiver coord, and commodity, and
                 value = average quantity moved during lifetime in [MTHM]"
         """
-        lons, lats, labels = self.get_lons_lats_labels(arch, True)
+        lons, lats, labels = self.lons_lats_labels(arch, True)
         lines = defaultdict(float)
         for key in self.transactions.keys():
             commodity = key[2]
@@ -422,7 +420,7 @@ class Cycvis():
             lines[(sender_coord, receiver_coord, commodity)] = quantity
         return lines
 
-    def plot_basemap(self, file_name):
+    def ax_main_basemap(self, file_name):
         """ Returns a matplotlib basemap for the simulation region
 
         Parameters
@@ -438,7 +436,7 @@ class Cycvis():
         fig = plt.figure(figsize=self.figsize)
         ax_main = fig.add_axes(self.ax_main_box)
         ax_sub = fig.add_axes(self.ax_sub_box)
-        bounds = self.get_bounds()
+        bounds = self.basemap_bounds()
         basemap = Basemap(ax=ax_main,
                           projection='cyl',
                           llcrnrlat=bounds[0],
@@ -454,7 +452,7 @@ class Cycvis():
         basemap.drawstates(zorder=0)
         return fig, ax_main, ax_sub
 
-    def resize_legend(self):
+    def ax_main_legend(self):
         """ Resizes scatter plot legends to the same size
 
         Parameters
@@ -477,7 +475,7 @@ class Cycvis():
             handle._linewidth = 3
         self.fig.canvas.update()
 
-    def plot_reactors(self):
+    def ax_main_reactors(self):
         """ Scatter plot of reactors with reactor capacity as marker size
 
         Parameters
@@ -487,7 +485,7 @@ class Cycvis():
         -------
         """
         mpl = {}
-        lons, lats, labels = self.get_lons_lats_labels('Reactor', True)
+        lons, lats, labels = self.lons_lats_labels('Reactor', True)
         reactor_markers = self.reactor_markers()
         for i, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
@@ -504,7 +502,7 @@ class Cycvis():
                               horizontalalignment=self.label_prop['horz'])
         return mpl
 
-    def plot_nonreactors(self, arch, i):
+    def ax_main_nonreactors(self, arch, i):
         """ Scatter plot of nonreactors
 
         Parameters
@@ -520,22 +518,25 @@ class Cycvis():
         -------
         """
         mpl = {}
-        lons, lats, labels = self.get_lons_lats_labels(arch, True)
+        num_archs = len(self.archs)
+        colors = cm.rainbow(np.linspace(0, 1, num_archs))
+        lons, lats, labels = self.lons_lats_labels(arch, True)
         for j, (lon, lat, label) in enumerate(zip(lons, lats, labels)):
             agents = set(label.split(', '))
+            label = str(arch)
             mpl[self.ax_main.scatter(lon, lat,
                                      s=self.nonreactor_prop['s'],
                                      alpha=self.nonreactor_prop['alpha'],
                                      zorder=self.nonreactor_prop['zorder'],
-                                     label=str(arch),
-                                     color=self.colors[i])] = agents
+                                     label=label,
+                                     color=colors[i])] = agents
             self.ax_main.text(lon, lat, label,
                               fontsize=self.label_prop['fontsize'],
                               verticalalignment=self.label_prop['vert'],
                               horizontalalignment=self.label_prop['horz'])
         return mpl
 
-    def plot_transactions(self):
+    def ax_main_transactions(self):
         """ Line plot of transactions during simulation with logarithmic linewidth
 
         Parameters
@@ -569,12 +570,13 @@ class Cycvis():
                                   alpha=self.transactions_prop['alpha'],
                                   zorder=self.transactions_prop['zorder'])
 
-    def update_annotion(self, event, annot, agent_set):
+    def ax_sub_annotation(self, event, annot, agent_set):
         annot.xy = (event.xdata, event.ydata)
-        summary = self.get_agent_summary(agent_set)
+        summary = self.ax_sub_agent_info(agent_set)
         annot.set_text(summary)
+        annot.set_visible(True)
 
-    def get_agent_summary(self, agent_set):
+    def ax_sub_agent_info(self, agent_set):
         agent_set = sorted(list(agent_set))
         summary = ''
         for i, agent in enumerate(agent_set):
@@ -583,26 +585,25 @@ class Cycvis():
             summary += "[" + spec + "] "
             summary += name + "    "
             if spec == 'Reactor':
-                capacity = str(self.reactor_power[int(agent)][0])
+                capacity = str(self.reactor_info[int(agent)][0])
                 summary += "(" + capacity + " [MWe])"
             summary += "\n"
         return summary
 
-    def click_event(self, event, annot):
+    def ax_main_click_event(self, event, annot):
         visible = annot.get_visible()
         if event.inaxes == self.ax_main:
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.update_annotion(event, annot, agent_set)
-                    annot.set_visible(True)
-                    self.plot_agent_info(agent_set, annot)
+                    self.ax_sub_annotation(event, annot, agent_set)
+                    self.ax_sub_transaction(agent_set, annot)
                     self.fig.canvas.draw_idle()
                     break
                 else:
                     if visible:
                         annot.set_visible(False)
-                        self.update_ax_sub(self.ax_sub_box)
+                        self.ax_sub_format(self.ax_sub_box)
                         self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
@@ -612,23 +613,22 @@ class Cycvis():
                                       bbox=self.annot_prop['bbox'],
                                       verticalalignment='top',
                                       visible=False)
-        # annot.set_visible(False)
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
-                                    self.click_event(event, annot))
+                                    self.ax_main_click_event(event, annot))
 
-    def plot_archetypes(self):
+    def ax_main_archetypes(self):
         mpl_objects = {}
         for i, arch in enumerate(self.archs):
             if arch == 'Reactor':
-                reactors = self.plot_reactors()
+                reactors = self.ax_main_reactors()
                 mpl_objects = {**mpl_objects, **reactors}
             else:
-                non_reactors = self.plot_nonreactors(arch, i)
+                non_reactors = self.ax_main_nonreactors(arch, i)
                 mpl_objects = {**mpl_objects, **non_reactors}
         return mpl_objects
 
-    def get_timeseries_cum(self, in_list):
+    def cumulative_timeseries(self, in_list):
         """ returns a timeseries list from in_list data.
 
         Parameters
@@ -654,7 +654,7 @@ class Cycvis():
             value_timeseries.append(value)
         return value_timeseries
 
-    def available_subplotting_space(self, annot):
+    def ax_sub_size(self, annot):
         # https://stackoverflow.com/questions/
         # 29702424/how-to-get-matplotlib-figure-size
         self.ax_main.figure.canvas.draw()
@@ -676,7 +676,7 @@ class Cycvis():
         bounds = [left, bottom, width, height]
         return bounds
 
-    def sub_plot_title(self, agent_set):
+    def ax_sub_plot_title(self, agent_set):
         title = []
         if self.is_incommod:
             title += ['In']
@@ -687,7 +687,7 @@ class Cycvis():
         title += ' vs. Time'
         return title
 
-    def update_ax_sub(self, new_bounds):
+    def ax_sub_format(self, new_bounds):
         self.ax_sub.remove()
         self.ax_sub = self.fig.add_axes(new_bounds)
         self.ax_sub.set_xlabel('Time [yr]', fontsize='small')
@@ -700,15 +700,15 @@ class Cycvis():
                                      scilimits=(0, 0))
         self.ax_sub.yaxis.offsetText.set_fontsize('x-small')
 
-    def subplot_label(self, commod, is_incommod):
+    def ax_sub_label(self, commod, is_incommod):
         if is_incommod:
             return "In: " + commod
         else:
             return "Out: " + commod
 
-    def plot_agent_info(self, agent_set, annot):
-        sub_ax_coords = self.available_subplotting_space(annot)
-        self.update_ax_sub(sub_ax_coords)
+    def ax_sub_transaction(self, agent_set, annot):
+        sub_ax_coords = self.ax_sub_size(annot)
+        self.ax_sub_format(sub_ax_coords)
         for k, v in self.transactions.items():
             for agent in agent_set:
                 senderid = str(k[0])
@@ -716,17 +716,17 @@ class Cycvis():
                 commod = k[2]
                 if self.is_incommod and agent == receiverid:
                     is_in = True
-                    commod_timeseries = self.get_timeseries_cum(v)
+                    commod_timeseries = self.cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=self.subplot_label(commod, is_in))
+                                     label=self.ax_sub_label(commod, is_in))
                 if self.is_outcommod and agent == senderid:
                     is_in = False
-                    commod_timeseries = self.get_timeseries_cum(v)
+                    commod_timeseries = self.cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr,
                                      commod_timeseries,
-                                     label=self.subplot_label(commod, is_in))
-        self.ax_sub.set_title(self.sub_plot_title(agent_set),
+                                     label=self.ax_sub_label(commod, is_in))
+        self.ax_sub.set_title(self.ax_sub_plot_title(agent_set),
                               fontsize='small')
         handles, labels = self.ax_sub.get_legend_handles_labels()
         legend = OrderedDict(zip(labels, handles))
@@ -755,8 +755,8 @@ def main(sqlite_file):
     -------
     """
     cycvis = Cycvis(sqlite_file)
-    cycvis.plot_transactions()
-    cycvis.resize_legend()
+    cycvis.ax_main_transactions()
+    cycvis.ax_main_legend()
     cycvis.interactive_annotate()
     plt.show()
 
