@@ -22,16 +22,11 @@ class Cycvis():
         self.agent_info = self.agent_info()
         self.archs = self.available_archetypes()
         self.init_yr, self.timestep, self.timestep_yr = self.sim_info()
-        self.fig, self.ax_main, self.ax_sub = self.ax_main_basemap(file_name)
+        (self.fig, self.ax_main,
+         self.ax_sub, self.agent_description) = self.ax_main_basemap()
         self.transactions = self.transactions()
         self.reactor_info = self.reactor_info()
         self.mpl_objects = self.ax_main_archetypes()
-        self.annotation = self.ax_main.annotate('', xy=(0, 0),
-                                                xytext=(1.02, 0.99),
-                                                textcoords='axes fraction',
-                                                bbox=dict(boxstyle="round", alpha=(0.0), fc="w"),
-                                                verticalalignment='top',
-                                                visible=False)
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -404,7 +399,7 @@ class Cycvis():
             lines[(sender_coord, receiver_coord, commodity)] = quantity
         return lines
 
-    def ax_main_basemap(self, file_name):
+    def ax_main_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
 
         Parameters
@@ -420,6 +415,14 @@ class Cycvis():
         fig = plt.figure(figsize=self.figsize)
         ax_main = fig.add_axes(self.ax_main_box)
         ax_sub = fig.add_axes(self.ax_sub_box)
+        annotation_bbox = dict(boxstyle="round", alpha=(0.0), fc="w")
+        annotation = ax_main.annotate('',
+                                      xy=(0, 0),
+                                      visible=False,
+                                      xytext=(1.02, 0.99),
+                                      bbox=annotation_bbox,
+                                      verticalalignment='top',
+                                      textcoords='axes fraction')
         bounds = self.basemap_bounds()
         basemap = Basemap(ax=ax_main,
                           projection='cyl',
@@ -429,12 +432,15 @@ class Cycvis():
                           urcrnrlon=bounds[3],
                           fix_aspect=False,
                           anchor='NW')
-        basemap.drawcoastlines(zorder=-15)
-        basemap.drawmapboundary(fill_color='lightblue', zorder=-10)
-        basemap.fillcontinents(color='white', lake_color='aqua', zorder=-5)
-        basemap.drawcountries(zorder=0)
         basemap.drawstates(zorder=0)
-        return fig, ax_main, ax_sub
+        basemap.drawcountries(zorder=0)
+        basemap.drawcoastlines(zorder=-15)
+        basemap.fillcontinents(zorder=-5,
+                               color='white',
+                               lake_color='lightblue')
+        basemap.drawmapboundary(zorder=-10,
+                                fill_color='lightblue')
+        return fig, ax_main, ax_sub, annotation
 
     def ax_main_legend(self):
         """ Resizes scatter plot legends to the same size
@@ -555,11 +561,11 @@ class Cycvis():
                                   linewidth=linewidth,
                                   color=commod_cm[commod])
 
-    def ax_sub_annotation(self, event, agent_set):
-        self.annotation.xy = (event.xdata, event.ydata)
+    def ax_sub_agent_description(self, event, agent_set):
+        self.agent_description.xy = (event.xdata, event.ydata)
         summary = self.ax_sub_agent_info(agent_set)
-        self.annotation.set_text(summary)
-        self.annotation.set_visible(True)
+        self.agent_description.set_text(summary)
+        self.agent_description.set_visible(True)
 
     def ax_sub_agent_info(self, agent_set):
         agent_set = sorted(list(agent_set))
@@ -576,18 +582,18 @@ class Cycvis():
         return summary
 
     def ax_main_click_event(self, event):
-        visible = self.annotation.get_visible()
+        visible = self.agent_description.get_visible()
         if event.inaxes == self.ax_main:
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.ax_sub_annotation(event, agent_set)
+                    self.ax_sub_agent_description(event, agent_set)
                     self.ax_sub_transaction(agent_set)
                     self.fig.canvas.draw_idle()
                     break
                 else:
                     if visible:
-                        self.annotation.set_visible(False)
+                        self.agent_description.set_visible(False)
                         self.ax_sub_format(self.ax_sub_box)
                         self.fig.canvas.draw_idle()
 
@@ -637,7 +643,7 @@ class Cycvis():
         # https://stackoverflow.com/questions/
         # 29702424/how-to-get-matplotlib-figure-size
         self.ax_main.figure.canvas.draw()
-        annot_box = self.annotation.get_bbox_patch()
+        annot_box = self.agent_description.get_bbox_patch()
         annot_box_height = annot_box.get_height()
         invert_dpi_scale = self.fig.dpi_scale_trans.inverted()
         fig_bbox = self.fig.get_window_extent().transformed(invert_dpi_scale)
