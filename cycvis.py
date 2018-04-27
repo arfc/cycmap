@@ -588,13 +588,13 @@ class Cycvis():
                 cont, ind = mpl_object.contains(event)
                 if cont:
                     self.ax_sub_plot_agent_info(event, agent_set)
-                    self.ax_sub_transaction(agent_set)
+                    self.ax_sub_plot_transactions(agent_set)
                     self.fig.canvas.draw_idle()
                     break
                 else:
                     if visible:
                         self.agent_description.set_visible(False)
-                        self.ax_sub_format(self.ax_sub_box)
+                        self.ax_sub_update_bounds(self.ax_sub_box)
                         self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
@@ -691,9 +691,9 @@ class Cycvis():
         else:
             return "Out: " + commod
 
-    def ax_sub_transaction(self, agent_set):
+    def ax_sub_plot_transactions(self, agent_set):
         sub_ax_coords = self.calculate_ax_sub_bounds()
-        self.ax_sub_format(sub_ax_coords)
+        self.ax_sub_update_bounds(sub_ax_coords)
         for k, v in self.transactions.items():
             for agent in agent_set:
                 senderid = str(k[0])
@@ -701,16 +701,16 @@ class Cycvis():
                 commod = k[2]
                 if self.is_incommod and agent == receiverid:
                     is_in = True
+                    label = self.ax_sub_get_label(commod, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
-                    self.ax_sub.plot(self.timestep_yr,
-                                     commod_timeseries,
-                                     label=self.ax_sub_get_label(commod, is_in))
+                    self.ax_sub.plot(self.timestep_yr, commod_timeseries,
+                                     label=label)
                 if self.is_outcommod and agent == senderid:
                     is_in = False
+                    label = self.ax_sub_get_label(commod, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
-                    self.ax_sub.plot(self.timestep_yr,
-                                     commod_timeseries,
-                                     label=self.ax_sub_get_label(commod, is_in))
+                    self.ax_sub.plot(self.timestep_yr, commod_timeseries,
+                                     label=label)
         self.ax_sub.set_title(self.ax_sub_get_plot_title(agent_set),
                               fontsize='small')
         self.format_legend(self.ax_sub)
