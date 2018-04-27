@@ -28,6 +28,7 @@ class Cycvis():
         self.transactions = self.get_transactions()
         self.reactor_info = self.get_reactor_info()
         self.ax_main_plot_basemap()
+        self.setup_checkbox()
         self.mpl_objects = self.ax_main_plot_agents()
 
     def get_cursor(self, file_name):
@@ -405,11 +406,7 @@ class Cycvis():
         fig = plt.figure(figsize=self.figsize)
         ax_main = fig.add_axes(self.ax_main_bounds)
         ax_sub = fig.add_axes(self.ax_sub_bounds)
-        ax_checkbox = fig.add_axes(self.ax_check_bounds,
-                                   frameon=False)
-        ax_checkbox.set_frame_on(False)
-        ax_checkbox.get_xaxis().set_visible(False)
-        ax_checkbox.get_yaxis().set_visible(False)
+        ax_checkbox = fig.add_axes(self.ax_check_bounds)
         annotation_bbox = dict(boxstyle="round", alpha=(0.0), fc="w")
         annotation = ax_main.annotate('',
                                       xy=(0, 0),
@@ -419,6 +416,15 @@ class Cycvis():
                                       verticalalignment='top',
                                       textcoords='axes fraction')
         return fig, ax_main, ax_sub, ax_checkbox, annotation
+
+    def setup_checkbox(self):
+        # Set x, y ticker first
+        self.ax_checkbox.get_xaxis().set_visible(False)
+        self.ax_checkbox.get_yaxis().set_visible(False)
+        options = ['In Commod', 'Out Commod']
+        for i, option in enumerate(options):
+            self.ax_checkbox.scatter(i, 0)
+            self.ax_checkbox.annotate(option)
 
     def ax_main_plot_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
