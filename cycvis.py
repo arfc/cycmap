@@ -24,9 +24,10 @@ class Cycvis():
         self.archs = self.list_available_archetypes()
         self.init_yr, self.timestep, self.timestep_yr = self.get_sim_info()
         (self.fig, self.ax_main, self.ax_checkbox,
-         self.ax_sub, self.agent_description) = self.ax_main_plot_basemap()
+         self.ax_sub, self.agent_description) = self.setup_empty_plot()
         self.transactions = self.get_transactions()
         self.reactor_info = self.get_reactor_info()
+        self.ax_main_plot_basemap()
         self.mpl_objects = self.ax_main_plot_agents()
 
     def get_cursor(self, file_name):
@@ -400,6 +401,25 @@ class Cycvis():
             lines[(sender_coord, receiver_coord, commodity)] = quantity
         return lines
 
+    def setup_empty_plot(self):
+        fig = plt.figure(figsize=self.figsize)
+        ax_main = fig.add_axes(self.ax_main_bounds)
+        ax_sub = fig.add_axes(self.ax_sub_bounds)
+        ax_checkbox = fig.add_axes(self.ax_check_bounds,
+                                   frameon=False)
+        ax_checkbox.set_frame_on(False)
+        ax_checkbox.get_xaxis().set_visible(False)
+        ax_checkbox.get_yaxis().set_visible(False)
+        annotation_bbox = dict(boxstyle="round", alpha=(0.0), fc="w")
+        annotation = ax_main.annotate('',
+                                      xy=(0, 0),
+                                      visible=False,
+                                      xytext=(1.02, 0.99),
+                                      bbox=annotation_bbox,
+                                      verticalalignment='top',
+                                      textcoords='axes fraction')
+        return fig, ax_main, ax_sub, ax_checkbox, annotation
+
     def ax_main_plot_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
 
@@ -413,20 +433,9 @@ class Cycvis():
         sim_map: matplotlib basemap
                 matplotlib basemap
         """
-        fig = plt.figure(figsize=self.figsize)
-        ax_main = fig.add_axes(self.ax_main_bounds)
-        ax_sub = fig.add_axes(self.ax_sub_bounds)
-        ax_checkbox = fig.add_axes(self.ax_check_bounds)
-        annotation_bbox = dict(boxstyle="round", alpha=(0.0), fc="w")
-        annotation = ax_main.annotate('',
-                                      xy=(0, 0),
-                                      visible=False,
-                                      xytext=(1.02, 0.99),
-                                      bbox=annotation_bbox,
-                                      verticalalignment='top',
-                                      textcoords='axes fraction')
+
         bounds = self.calculate_basemap_bounds()
-        basemap = Basemap(ax=ax_main,
+        basemap = Basemap(ax=self.ax_main,
                           projection='cyl',
                           llcrnrlat=bounds[0],
                           llcrnrlon=bounds[1],
@@ -442,7 +451,6 @@ class Cycvis():
                                lake_color='lightblue')
         basemap.drawmapboundary(zorder=-10,
                                 fill_color='lightblue')
-        return fig, ax_main, ax_sub, ax_checkbox, annotation
 
     def format_legend(self, ax):
         """ Resizes scatter plot legends to the same size
