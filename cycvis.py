@@ -666,9 +666,9 @@ class Cycvis():
 
     def ax_sub_get_plot_title(self, agent_set):
         title = []
-        if self.is_incommod:
+        if self.show_incommod:
             title += ['In']
-        if self.is_outcommod:
+        if self.show_outcommod:
             title += ['Out']
         title = ' and '.join(title)
         title += ' Commodities of ' + ', '.join(agent_set)
@@ -704,13 +704,13 @@ class Cycvis():
                 senderid = str(k[0])
                 receiverid = str(k[1])
                 commod = k[2]
-                if self.is_incommod and agent == receiverid:
+                if self.show_incommod and agent == receiverid:
                     is_in = True
                     label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr, commod_timeseries,
                                      label=label)
-                if self.is_outcommod and agent == senderid:
+                if self.show_outcommod and agent == senderid:
                     is_in = False
                     label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
