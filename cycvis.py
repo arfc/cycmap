@@ -573,6 +573,7 @@ class Cycvis():
         for i, agent in enumerate(agent_set):
             name = self.agent_info[agent][0]
             spec = self.agent_info[agent][1]
+            summary += "(" + agent + ") "
             summary += "[" + spec + "] "
             summary += name + "    "
             if spec == 'Reactor':
@@ -688,7 +689,7 @@ class Cycvis():
     def ax_sub_get_label(self, commod, agentid, is_incommod):
         label = "(" + agentid + ") "
         if is_incommod:
-            label += "In: " + commod
+            label += "In:  " + commod
         else:
             label += "Out: " + commod
         return label
