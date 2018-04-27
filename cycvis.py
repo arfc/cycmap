@@ -685,11 +685,13 @@ class Cycvis():
                                      scilimits=(0, 0))
         self.ax_sub.yaxis.offsetText.set_fontsize('x-small')
 
-    def ax_sub_get_label(self, commod, is_incommod):
+    def ax_sub_get_label(self, commod, agentid, is_incommod):
+        label = "(" + agentid + ") "
         if is_incommod:
-            return "In: " + commod
+            label += "In: " + commod
         else:
-            return "Out: " + commod
+            label += "Out: " + commod
+        return label
 
     def ax_sub_plot_transactions(self, agent_set):
         sub_ax_coords = self.calculate_ax_sub_bounds()
@@ -701,13 +703,13 @@ class Cycvis():
                 commod = k[2]
                 if self.is_incommod and agent == receiverid:
                     is_in = True
-                    label = self.ax_sub_get_label(commod, is_in)
+                    label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr, commod_timeseries,
                                      label=label)
                 if self.is_outcommod and agent == senderid:
                     is_in = False
-                    label = self.ax_sub_get_label(commod, is_in)
+                    label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
                     self.ax_sub.plot(self.timestep_yr, commod_timeseries,
                                      label=label)
