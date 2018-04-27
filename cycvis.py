@@ -442,7 +442,7 @@ class Cycvis():
                                 fill_color='lightblue')
         return fig, ax_main, ax_sub, annotation
 
-    def ax_main_legend(self):
+    def format_legend(self, ax):
         """ Resizes scatter plot legends to the same size
 
         Parameters
@@ -451,19 +451,19 @@ class Cycvis():
         Returns
         -------
         """
-        handles, labels = self.ax_main.get_legend_handles_labels()
+        handles, labels = ax.get_legend_handles_labels()
         legend = OrderedDict(zip(labels, handles))
-        legend = self.ax_main.legend(legend.values(),
-                                     legend.keys(),
-                                     columnspacing=0.1,
-                                     labelspacing=0.1,
-                                     fontsize='x-small',
-                                     loc='best')
+        legend = ax.legend(legend.values(),
+                           legend.keys(),
+                           columnspacing=0.1,
+                           labelspacing=0.1,
+                           fontsize='x-small',
+                           loc='best')
         for handle in legend.legendHandles:
             handle._sizes = [30]
             handle._alpha = 1
             handle._linewidth = 3
-        self.fig.canvas.update()
+        ax.figure.canvas.update()
 
     def ax_main_reactors(self):
         """ Scatter plot of reactors with reactor capacity as marker size
@@ -713,18 +713,7 @@ class Cycvis():
                                      label=self.ax_sub_label(commod, is_in))
         self.ax_sub.set_title(self.ax_sub_plot_title(agent_set),
                               fontsize='small')
-        handles, labels = self.ax_sub.get_legend_handles_labels()
-        legend = OrderedDict(zip(labels, handles))
-        legend = self.ax_sub.legend(legend.values(),
-                                    legend.keys(),
-                                    columnspacing=0.1,
-                                    labelspacing=0.1,
-                                    fontsize='x-small',
-                                    loc='best')
-        for handle in legend.legendHandles:
-            handle._sizes = [30]
-            handle._alpha = 1
-            handle._linewidth = 3
+        self.format_legend(self.ax_sub)
 
 
 def main(sqlite_file):
@@ -741,7 +730,7 @@ def main(sqlite_file):
     """
     cycvis = Cycvis(sqlite_file)
     cycvis.ax_main_transactions()
-    cycvis.ax_main_legend()
+    cycvis.format_legend(cycvis.ax_main)
     cycvis.interactive_annotate()
     plt.show()
 
