@@ -12,17 +12,18 @@ warnings.filterwarnings('ignore')
 class Cycvis():
     # default settings for mpl plotting
     figsize = (11, 5.5)
-    ax_main_box = [0.02, 0.05, 0.6, 0.8]
-    ax_sub_box = [2, 2, 0, 0]
-    is_incommod = True
-    is_outcommod = True
+    ax_main_bounds = [0.02, 0.05, 0.6, 0.8]
+    ax_sub_bounds = [2, 2, 0, 0]
+    ax_check_bounds = [0.02, 0.85, 0.6, 0.1]
+    show_incommod = True
+    show_outcommod = True
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
         self.agent_info = self.get_agent_info()
         self.archs = self.list_available_archetypes()
         self.init_yr, self.timestep, self.timestep_yr = self.get_sim_info()
-        (self.fig, self.ax_main,
+        (self.fig, self.ax_main, self.ax_checkbox,
          self.ax_sub, self.agent_description) = self.ax_main_plot_basemap()
         self.transactions = self.get_transactions()
         self.reactor_info = self.get_reactor_info()
@@ -413,8 +414,9 @@ class Cycvis():
                 matplotlib basemap
         """
         fig = plt.figure(figsize=self.figsize)
-        ax_main = fig.add_axes(self.ax_main_box)
-        ax_sub = fig.add_axes(self.ax_sub_box)
+        ax_main = fig.add_axes(self.ax_main_bounds)
+        ax_sub = fig.add_axes(self.ax_sub_bounds)
+        ax_checkbox = fig.add_axes(self.ax_check_bounds)
         annotation_bbox = dict(boxstyle="round", alpha=(0.0), fc="w")
         annotation = ax_main.annotate('',
                                       xy=(0, 0),
@@ -440,7 +442,7 @@ class Cycvis():
                                lake_color='lightblue')
         basemap.drawmapboundary(zorder=-10,
                                 fill_color='lightblue')
-        return fig, ax_main, ax_sub, annotation
+        return fig, ax_main, ax_sub, ax_checkbox, annotation
 
     def format_legend(self, ax):
         """ Resizes scatter plot legends to the same size
@@ -595,7 +597,7 @@ class Cycvis():
                 else:
                     if visible:
                         self.agent_description.set_visible(False)
-                        self.ax_sub_update_bounds(self.ax_sub_box)
+                        self.ax_sub_update_bounds(self.ax_sub_bounds)
                         self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
@@ -651,8 +653,8 @@ class Cycvis():
         fig_height = self.fig.dpi * fig_bbox.height
         annot_box_height_fraction = annot_box_height / fig_height
         margin = 0.05
-        main_plot_width = self.ax_main_box[2] + self.ax_main_box[0]
-        main_plot_height = self.ax_main_box[1] + self.ax_main_box[3]
+        main_plot_width = self.ax_main_bounds[2] + self.ax_main_bounds[0]
+        main_plot_height = self.ax_main_bounds[1] + self.ax_main_bounds[3]
         left = main_plot_width + margin
         bottom = 2 * margin
         width = 1 - (margin + left)
