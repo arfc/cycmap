@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import warnings
+from pprint import pprint
 warnings.filterwarnings('ignore')
 
 
@@ -27,9 +28,9 @@ class Cycvis():
          self.ax_checkbox, self.agent_description) = self.setup_empty_plot()
         self.transactions = self.get_transactions()
         self.reactor_info = self.get_reactor_info()
-        self.ax_main_plot_basemap()
-        self.setup_checkbox()
+        self.checkbox, self.checkbox_annotation = self.setup_checkbox()
         self.mpl_objects = self.ax_main_plot_agents()
+        self.ax_main_plot_basemap()
 
     def get_cursor(self, file_name):
         """ Returns a cursor to an sqlite file
@@ -418,6 +419,8 @@ class Cycvis():
         return fig, ax_main, ax_sub, ax_checkbox, annotation
 
     def setup_checkbox(self):
+        mpl_scatter = {}
+        mpl_text = {}
         # Set x, y ticker first
         self.ax_checkbox.get_xaxis().set_visible(False)
         self.ax_checkbox.get_yaxis().set_visible(False)
@@ -425,14 +428,15 @@ class Cycvis():
         self.ax_checkbox.set_xlim(-0.05, 2)
         self.ax_checkbox.set_ylim(-0.5, 0.5)
         options = ['In Commod', 'Out Commod']
-        x_text_offset = 0.18
-        y_text_offset = -0.02
+        x_text_offset = 0.05
+        y_text_offset = -0.05
+        # Matplotlib object
         for i, option in enumerate(options):
-            self.ax_checkbox.scatter(i, 0)
-            self.ax_checkbox.annotate(option,
-                                      xy=(i + x_text_offset, y_text_offset),
-                                      verticalalignment='center',
-                                      horizontalalignment='center')
+            annotate_coords = (i + x_text_offset, y_text_offset)
+            mpl_scatter[option] = self.ax_checkbox.scatter(i, 0)
+            mpl_text[option] = self.ax_checkbox.annotate(option,
+                                                         xy=annotate_coords)
+        return mpl_scatter, mpl_text
 
     def ax_main_plot_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
@@ -622,10 +626,26 @@ class Cycvis():
                         self.ax_sub_update_bounds(self.ax_sub_bounds)
                         self.fig.canvas.draw_idle()
 
+    def ax_checkbox_click_event(self, event):
+        if event.inaxes == self.ax_checkbox:
+            for option, mpl_object in self.checkbox.items():
+                cont, ind = mpl_object.contains(event)
+                if cont:
+                    is_visible = not mpl_object.get_visible()
+                    mpl_object.set_visible(is_visible)
+                    if option == 'In Commod':
+                        self.show_incommod = is_visible
+                    if option == 'Out Commod':
+                        self.show_outcommod = is_visible
+                    self.fig.canvas.draw_idle()
+
     def interactive_annotate(self):
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
                                     self.ax_main_click_event(event))
+        self.fig.canvas.mpl_connect('button_press_event',
+                                    lambda event:
+                                    self.ax_checkbox_click_event(event))
 
     def ax_main_plot_agents(self):
         mpl_objects = {}
