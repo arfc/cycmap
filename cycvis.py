@@ -23,8 +23,8 @@ class Cycvis():
         self.agent_info = self.get_agent_info()
         self.archs = self.list_available_archetypes()
         self.init_yr, self.timestep, self.timestep_yr = self.get_sim_info()
-        (self.fig, self.ax_main, self.ax_checkbox,
-         self.ax_sub, self.agent_description) = self.setup_empty_plot()
+        (self.fig, self.ax_main, self.ax_sub,
+         self.ax_checkbox, self.agent_description) = self.setup_empty_plot()
         self.transactions = self.get_transactions()
         self.reactor_info = self.get_reactor_info()
         self.ax_main_plot_basemap()
@@ -421,10 +421,18 @@ class Cycvis():
         # Set x, y ticker first
         self.ax_checkbox.get_xaxis().set_visible(False)
         self.ax_checkbox.get_yaxis().set_visible(False)
+        # Set axis limit
+        self.ax_checkbox.set_xlim(-0.05, 2)
+        self.ax_checkbox.set_ylim(-0.5, 0.5)
         options = ['In Commod', 'Out Commod']
+        x_text_offset = 0.18
+        y_text_offset = -0.02
         for i, option in enumerate(options):
             self.ax_checkbox.scatter(i, 0)
-            self.ax_checkbox.annotate(option)
+            self.ax_checkbox.annotate(option,
+                                      xy=(i + x_text_offset, y_text_offset),
+                                      verticalalignment='center',
+                                      horizontalalignment='center')
 
     def ax_main_plot_basemap(self):
         """ Returns a matplotlib basemap for the simulation region
