@@ -430,10 +430,14 @@ class Cycvis():
         options = ['In Commod', 'Out Commod']
         x_text_offset = 0.05
         y_text_offset = -0.05
+        # Color map
+        color = cm.rainbow(np.linspace(0, 1, len(options)))
         # Matplotlib object
         for i, option in enumerate(options):
             annotate_coords = (i + x_text_offset, y_text_offset)
-            mpl_scatter[option] = self.ax_checkbox.scatter(i, 0)
+            mpl_scatter[option] = self.ax_checkbox.scatter(i, 0,
+                                                           color=color[i],
+                                                           edgecolors='k')
             mpl_text[option] = self.ax_checkbox.annotate(option,
                                                          xy=annotate_coords)
         return mpl_scatter, mpl_text
@@ -623,32 +627,57 @@ class Cycvis():
                     if is_visible:
                         self.agent_description.set_visible(False)
                         self.ax_sub_update_bounds(self.ax_sub_bounds)
-            self.ax_sub.figure.canvas.draw_idle()
+            self.fig.canvas.draw()
+
+    def ax_checkbox_update(self, is_in_commod, mpl_object):
+        num_options = len(self.checkbox.keys())
+        color = cm.rainbow(np.linspace(0, 1, num_options))
+        if is_in_commod:
+            if self.show_incommod:
+                new_color = [1, 1, 1, 1]
+                mpl_object.set(edgecolors='k',
+                               facecolor=new_color)
+                self.show_incommod = False
+            else:
+                new_color = color[0]
+                mpl_object.set(edgecolors='k',
+                               facecolor=new_color)
+                self.show_incommod = True
+        else:
+            if self.show_outcommod:
+                new_color = [1, 1, 1, 1]
+                mpl_object.set(edgecolors='k',
+                               facecolor=new_color)
+                self.show_outcommod = False
+            else:
+                new_color = color[1]
+                mpl_object.set(edgecolors='k',
+                               facecolor=new_color)
+                self.show_outcommod = True
+        self.fig.canvas.draw()
 
     def ax_checkbox_click_event(self, event):
         if event.inaxes == self.ax_checkbox:
             for option, mpl_object in self.checkbox.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    is_visible = not mpl_object.get_visible()
-                    mpl_object.set_visible(is_visible)
                     if option == 'In Commod':
-                        self.show_incommod = is_visible
+                        self.ax_checkbox_update(True, mpl_object)
                         for plot in self.ax_sub_in_transactions:
-                            plot.set_visible(is_visible)
+                            plot.set_visible(self.show_incommod)
                     if option == 'Out Commod':
-                        self.show_outcommod = is_visible
+                        self.ax_checkbox_update(False, mpl_object)
                         for plot in self.ax_sub_out_transactions:
-                            plot.set_visible(is_visible)
-            self.fig.canvas.draw_idle()
+                            plot.set_visible(self.show_outcommod)
+            self.fig.canvas.draw()
 
     def interactive_annotate(self):
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
-                                    self.ax_main_click_event(event))
+                                    self.ax_checkbox_click_event(event))
         self.fig.canvas.mpl_connect('button_press_event',
                                     lambda event:
-                                    self.ax_checkbox_click_event(event))
+                                    self.ax_main_click_event(event))
 
     def ax_main_plot_agents(self):
         mpl_objects = {}
