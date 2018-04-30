@@ -468,14 +468,19 @@ class Cycvis():
                           urcrnrlon=bounds[3],
                           fix_aspect=False,
                           anchor='NW')
-        basemap.drawstates(zorder=0)
-        basemap.drawcountries(zorder=0)
-        basemap.drawcoastlines(zorder=-15)
+        basemap.drawstates(linewidth=0.25,
+                           color='black',
+                           zorder=0)
+        basemap.drawcountries(linewidth=0.25,
+                              zorder=0)
+        basemap.drawcoastlines(linewidth=0.5,
+                               zorder=-15)
         basemap.fillcontinents(zorder=-5,
-                               color='white',
+                               color='cornsilk',
                                lake_color='lightblue')
-        basemap.drawmapboundary(zorder=-10,
-                                fill_color='lightblue')
+        basemap.drawmapboundary(linewidth=0.75,
+                                zorder=10,
+                                fill_color='white')
 
     def format_legend(self, ax):
         """ Resizes scatter plot legends to the same size
@@ -519,12 +524,7 @@ class Cycvis():
                                      alpha=0.4,
                                      color='grey',
                                      label='Reactor',
-                                     edgecolors='black',
                                      s=reactor_markers[(lon, lat)])] = agents
-            self.ax_main.text(lon, lat, label,
-                              fontsize=8,
-                              verticalalignment='center',
-                              horizontalalignment='center')
         return mpl
 
     def ax_main_plot_nonreactors(self, arch, i):
@@ -550,9 +550,9 @@ class Cycvis():
             agents = set(label.split(', '))
             label = str(arch)
             mpl[self.ax_main.scatter(lon, lat,
-                                     s=150,
+                                     s=200,
                                      zorder=5,
-                                     alpha=0.4,
+                                     alpha=0.7,
                                      label=label,
                                      color=colors[i])] = agents
             self.ax_main.text(lon, lat, label,
@@ -576,12 +576,12 @@ class Cycvis():
         Returns
         -------
         """
-        quantity_to_linewidth = 0.02
+        quantity_to_linewidth = 0.01
         commods = {k[2] for k in self.transactions.keys()}
         num_commods = len(commods)
-        commod_cm = cm.Dark2(np.linspace(0, 1, num_commods))
-        commod_cm = {commod: color for commod, color
-                     in zip(commods, commod_cm)}
+        commod_cm = cm.rainbow(np.linspace(0, 1, num_commods + 4))[2:-2]
+        commod_cm = {commod: color for commod,
+                     color in zip(commods, commod_cm)}
         for arch in self.archs:
             transactions = self.calculate_transactions_line_width(arch)
             for key, value in transactions.items():
