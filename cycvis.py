@@ -18,6 +18,7 @@ class Cycvis():
     ax_check_bounds = [0.02, 0.85, 0.6, 0.1]
     show_incommod = True
     show_outcommod = True
+    current_agentset = []
 
     def __init__(self, file_name):
         self.cur = self.get_cursor(file_name)
@@ -593,14 +594,14 @@ class Cycvis():
                                   linewidth=linewidth,
                                   color=commod_cm[commod])
 
-    def ax_sub_show_agent_info(self, event, agent_set):
+    def ax_sub_show_agent_info(self, event):
         self.agent_description.xy = (event.xdata, event.ydata)
-        summary = self.ax_sub_get_agent_info(agent_set)
+        summary = self.ax_sub_get_agent_info()
         self.agent_description.set_text(summary)
         self.agent_description.set_visible(True)
 
-    def ax_sub_get_agent_info(self, agent_set):
-        agent_set = sorted(list(agent_set))
+    def ax_sub_get_agent_info(self):
+        agent_set = sorted(list(self.current_agentset))
         summary = ''
         for i, agent in enumerate(agent_set):
             name = self.agent_info[agent][0]
@@ -620,8 +621,9 @@ class Cycvis():
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.ax_sub_show_agent_info(event, agent_set)
-                    self.ax_sub_plot_transactions(agent_set)
+                    self.current_agentset = agent_set
+                    self.ax_sub_show_agent_info(event)
+                    self.ax_sub_plot_transactions()
                     break
                 else:
                     if is_visible:
@@ -663,12 +665,9 @@ class Cycvis():
                 if cont:
                     if option == 'In Commod':
                         self.ax_checkbox_update(True, mpl_object)
-                        for plot in self.ax_sub_in_transactions:
-                            plot.set_visible(self.show_incommod)
                     if option == 'Out Commod':
                         self.ax_checkbox_update(False, mpl_object)
-                        for plot in self.ax_sub_out_transactions:
-                            plot.set_visible(self.show_outcommod)
+            self.ax_sub_plot_transactions()
             self.fig.canvas.draw()
 
     def interactive_annotate(self):
@@ -738,14 +737,14 @@ class Cycvis():
         bounds = [left, bottom, width, height]
         return bounds
 
-    def ax_sub_get_plot_title(self, agent_set):
+    def ax_sub_get_plot_title(self):
         title = []
         if self.show_incommod:
             title += ['In']
         if self.show_outcommod:
             title += ['Out']
         title = ' and '.join(title)
-        title += ' Commodities of ' + ', '.join(agent_set)
+        title += ' Commodities of ' + ', '.join(self.current_agentset)
         title += ' vs. Time'
         return title
 
@@ -770,13 +769,13 @@ class Cycvis():
             label += "Out: " + commod
         return label
 
-    def ax_sub_plot_transactions(self, agent_set):
+    def ax_sub_plot_transactions(self):
         self.ax_sub_in_transactions = []
         self.ax_sub_out_transactions = []
         sub_ax_coords = self.calculate_ax_sub_bounds()
         self.ax_sub_update_bounds(sub_ax_coords)
         for k, v in self.transactions.items():
-            for agent in agent_set:
+            for agent in self.current_agentset:
                 senderid = str(k[0])
                 receiverid = str(k[1])
                 commod = k[2]
@@ -796,7 +795,7 @@ class Cycvis():
                                             commod_timeseries,
                                             label=label)
                     self.ax_sub_out_transactions.append(plot)
-        self.ax_sub.set_title(self.ax_sub_get_plot_title(agent_set),
+        self.ax_sub.set_title(self.ax_sub_get_plot_title(),
                               fontsize='small')
         self.format_legend(self.ax_sub)
 
