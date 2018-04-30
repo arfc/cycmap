@@ -589,7 +589,7 @@ class Cycvis():
                                   linewidth=linewidth,
                                   color=commod_cm[commod])
 
-    def ax_sub_plot_agent_info(self, event, agent_set):
+    def ax_sub_show_agent_info(self, event, agent_set):
         self.agent_description.xy = (event.xdata, event.ydata)
         summary = self.ax_sub_get_agent_info(agent_set)
         self.agent_description.set_text(summary)
@@ -611,20 +611,19 @@ class Cycvis():
         return summary
 
     def ax_main_click_event(self, event):
-        visible = self.agent_description.get_visible()
         if event.inaxes == self.ax_main:
+            is_visible = self.agent_description.get_visible()
             for mpl_object, agent_set in self.mpl_objects.items():
                 cont, ind = mpl_object.contains(event)
                 if cont:
-                    self.ax_sub_plot_agent_info(event, agent_set)
+                    self.ax_sub_show_agent_info(event, agent_set)
                     self.ax_sub_plot_transactions(agent_set)
-                    self.fig.canvas.draw_idle()
                     break
                 else:
-                    if visible:
+                    if is_visible:
                         self.agent_description.set_visible(False)
                         self.ax_sub_update_bounds(self.ax_sub_bounds)
-                        self.fig.canvas.draw_idle()
+            self.ax_sub.figure.canvas.draw_idle()
 
     def ax_checkbox_click_event(self, event):
         if event.inaxes == self.ax_checkbox:
@@ -635,9 +634,13 @@ class Cycvis():
                     mpl_object.set_visible(is_visible)
                     if option == 'In Commod':
                         self.show_incommod = is_visible
+                        for plot in self.ax_sub_in_transactions:
+                            plot.set_visible(is_visible)
                     if option == 'Out Commod':
                         self.show_outcommod = is_visible
-                    self.fig.canvas.draw_idle()
+                        for plot in self.ax_sub_out_transactions:
+                            plot.set_visible(is_visible)
+            self.fig.canvas.draw_idle()
 
     def interactive_annotate(self):
         self.fig.canvas.mpl_connect('button_press_event',
@@ -739,6 +742,8 @@ class Cycvis():
         return label
 
     def ax_sub_plot_transactions(self, agent_set):
+        self.ax_sub_in_transactions = []
+        self.ax_sub_out_transactions = []
         sub_ax_coords = self.calculate_ax_sub_bounds()
         self.ax_sub_update_bounds(sub_ax_coords)
         for k, v in self.transactions.items():
@@ -750,14 +755,18 @@ class Cycvis():
                     is_in = True
                     label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
-                    self.ax_sub.plot(self.timestep_yr, commod_timeseries,
-                                     label=label)
+                    plot = self.ax_sub.plot(self.timestep_yr,
+                                            commod_timeseries,
+                                            label=label)
+                    self.ax_sub_in_transactions.append(plot)
                 if self.show_outcommod and agent == senderid:
                     is_in = False
                     label = self.ax_sub_get_label(commod, agent, is_in)
                     commod_timeseries = self.calculate_cumulative_timeseries(v)
-                    self.ax_sub.plot(self.timestep_yr, commod_timeseries,
-                                     label=label)
+                    plot = self.ax_sub.plot(self.timestep_yr,
+                                            commod_timeseries,
+                                            label=label)
+                    self.ax_sub_out_transactions.append(plot)
         self.ax_sub.set_title(self.ax_sub_get_plot_title(agent_set),
                               fontsize='small')
         self.format_legend(self.ax_sub)
