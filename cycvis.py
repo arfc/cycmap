@@ -422,6 +422,8 @@ class Cycvis():
     def setup_checkbox(self):
         mpl_scatter = {}
         mpl_text = {}
+        # Hide Outer box
+        self.ax_checkbox.set_frame_on(False)
         # Set x, y ticker first
         self.ax_checkbox.get_xaxis().set_visible(False)
         self.ax_checkbox.get_yaxis().set_visible(False)
