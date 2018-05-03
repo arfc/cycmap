@@ -1,4 +1,4 @@
-# CyclusVis
+# CyclusMap
 Visualization of Agent positions and commodity transfer.
 
 Visualization of Cyclus simulation results as an interactive map.
